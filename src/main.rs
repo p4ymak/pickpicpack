@@ -1,5 +1,6 @@
 use eframe::{egui, epi};
-
+use egui::*;
+use image::{DynamicImage, GenericImageView, Rgba, RgbaImage};
 enum Aspect {
     Square,
     Screen,
@@ -13,11 +14,24 @@ impl Default for Aspect {
     }
 }
 
-#[derive(Default)]
+// #[derive(Default)]
 struct MyApp {
     aspect: Aspect,
     dropped_files: Vec<egui::DroppedFile>,
     // picked_path: Option<String>,
+    image: RgbaImage,
+    texture: Option<(egui::Vec2, egui::TextureId)>,
+}
+
+impl Default for MyApp {
+    fn default() -> MyApp {
+        MyApp {
+            aspect: Aspect::None,
+            dropped_files: Vec::<egui::DroppedFile>::new(),
+            image: RgbaImage::new(300, 300),
+            texture: None,
+        }
+    }
 }
 
 impl epi::App for MyApp {
@@ -25,60 +39,52 @@ impl epi::App for MyApp {
         "PickPicPack"
     }
 
-    fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            if let Aspect::None = self.aspect {
-                ui.label("Aspect NOT chosen!");
-            }
+    fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
+        // if self.texture.is_none() {
+        // Load the image:
+        // let image_data = include_bytes!("/home/p4ymak/Pictures/like.jpg");
+        // let image = image::load_from_memory(image_data).expect("Failed to load image");
+        let (size, pixels) = self.image_prepare();
+        // Allocate a texture:
+        let texture = frame
+            .tex_allocator()
+            .alloc_srgba_premultiplied(size, &pixels);
+        let size = egui::Vec2::new(size.0 as f32, size.1 as f32);
+        self.texture = Some((size, texture));
+        // }
 
-            if self.dropped_files.is_empty() {
-                ui.label("Drag-and-drop files onto the window!");
-            }
-            //             if cfg!(target_os = "macos") {
-            //                 // Awaiting fix of winit bug: https://github.com/rust-windowing/winit/pull/2027
-            //             } else if ui.button("Open file…").clicked() {
-            //                 if let Some(path) = rfd::FileDialog::new().pick_file() {
-            //                     self.picked_path = Some(path.display().to_string());
-            //                 }
-            //             }
+        //DRAW GUI
 
-            //             if let Some(picked_path) = &self.picked_path {
-            //                 ui.horizontal(|ui| {
-            //                     ui.label("Picked file:");
-            //                     ui.monospace(picked_path);
-            //                 });
-            //             }
-
-            // Show dropped files (if any):
-            if !self.dropped_files.is_empty() {
-                ui.group(|ui| {
-                    ui.label("Dropped files:");
-
-                    for file in &self.dropped_files {
-                        let mut info = if let Some(path) = &file.path {
-                            path.display().to_string()
-                        } else if !file.name.is_empty() {
-                            file.name.clone()
-                        } else {
-                            "???".to_owned()
-                        };
-                        if let Some(bytes) = &file.bytes {
-                            info += &format!(" ({} bytes)", bytes.len());
-                        }
-                        ui.label(info);
-                    }
-                });
-            }
-        });
+        egui::CentralPanel::default()
+            .frame(Frame::default())
+            .show(ctx, |ui| {
+                // ui.horizontal_top(|ui| {
+                //     ui.label("Same");
+                //     ui.label("row");
+                // });
+                if let Some((size, texture)) = self.texture {
+                    ui.image(texture, size);
+                }
+            });
 
         self.detect_files_being_dropped(ctx);
     }
 }
 
 impl MyApp {
+    fn image_prepare(&self) -> ((usize, usize), Vec<Color32>) {
+        let image = &self.image;
+        // let image_buffer = image.to_rgba8();
+        let size = (image.width() as usize, image.height() as usize);
+        let pixels = image.clone().into_vec();
+        assert_eq!(size.0 * size.1 * 4, pixels.len());
+        let pixels: Vec<_> = pixels
+            .chunks_exact(4)
+            .map(|p| egui::Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
+            .collect();
+        (size, pixels)
+    }
     fn detect_files_being_dropped(&mut self, ctx: &egui::CtxRef) {
-        use egui::*;
-
         // Preview hovering files:
         if !ctx.input().raw.hovered_files.is_empty() {
             let text = "Dropping files!".to_owned();
@@ -101,15 +107,33 @@ impl MyApp {
         if !ctx.input().raw.dropped_files.is_empty() {
             self.dropped_files
                 .extend(ctx.input().raw.dropped_files.clone());
-            println!("EXECUTE PACKING!!");
+            self.load_image();
         }
+    }
+    fn load_image(&mut self) {
+        let path = self.dropped_files.last().unwrap().path.as_ref();
+        if let Ok(img) = image::open(path.unwrap()) {
+            self.image = img.to_rgba8();
+        }
+        // let image_buffer = image.to_rgba8();
+        // let size = (image.width() as usize, image.height() as usize);
+        // let pixels = image_buffer.into_vec();
+        // assert_eq!(size.0 * size.1 * 4, pixels.len());
+        // let pixels: Vec<_> = pixels
+        //     .chunks_exact(4)
+        //     .map(|p| egui::Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
+        //     .collect();
     }
 }
 
 fn main() {
+    let start_state = MyApp::default();
     let options = eframe::NativeOptions {
+        always_on_top: true,
+        resizable: true,
+        initial_window_size: Some(egui::Vec2 { x: 500.0, y: 500.0 }),
         drag_and_drop_support: true,
         ..Default::default()
     };
-    eframe::run_native(Box::new(MyApp::default()), options);
+    eframe::run_native(Box::new(start_state), options);
 }
