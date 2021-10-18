@@ -21,6 +21,7 @@ struct MyApp {
     // picked_path: Option<String>,
     image: RgbaImage,
     texture: Option<(egui::Vec2, egui::TextureId)>,
+    to_update: bool,
 }
 
 impl Default for MyApp {
@@ -30,6 +31,7 @@ impl Default for MyApp {
             dropped_files: Vec::<egui::DroppedFile>::new(),
             image: RgbaImage::new(300, 300),
             texture: None,
+            to_update: true,
         }
     }
 }
@@ -40,28 +42,25 @@ impl epi::App for MyApp {
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
-        // if self.texture.is_none() {
-        // Load the image:
-        // let image_data = include_bytes!("/home/p4ymak/Pictures/like.jpg");
-        // let image = image::load_from_memory(image_data).expect("Failed to load image");
-        let (size, pixels) = self.image_prepare();
-        // Allocate a texture:
-        let texture = frame
-            .tex_allocator()
-            .alloc_srgba_premultiplied(size, &pixels);
-        let size = egui::Vec2::new(size.0 as f32, size.1 as f32);
-        self.texture = Some((size, texture));
-        // }
+        if self.to_update {
+            if let Some(texture) = self.texture {
+                frame.tex_allocator().free(texture.1);
+            }
+            let (size, pixels) = self.image_prepare();
+            // Allocate a texture:
+            let texture = frame
+                .tex_allocator()
+                .alloc_srgba_premultiplied(size, &pixels);
+            let size = egui::Vec2::new(size.0 as f32, size.1 as f32);
+            self.texture = Some((size, texture));
+            self.to_update = false;
+        }
 
         //DRAW GUI
 
         egui::CentralPanel::default()
             .frame(Frame::default())
             .show(ctx, |ui| {
-                // ui.horizontal_top(|ui| {
-                //     ui.label("Same");
-                //     ui.label("row");
-                // });
                 if let Some((size, texture)) = self.texture {
                     ui.image(texture, size);
                 }
@@ -114,6 +113,7 @@ impl MyApp {
         let path = self.dropped_files.last().unwrap().path.as_ref();
         if let Ok(img) = image::open(path.unwrap()) {
             self.image = img.to_rgba8();
+            self.to_update = true;
         }
         // let image_buffer = image.to_rgba8();
         // let size = (image.width() as usize, image.height() as usize);
