@@ -1,11 +1,14 @@
 use super::loader::load_new_pics;
 use eframe::egui::DroppedFile;
-use image::{DynamicImage, RgbaImage};
+use image::imageops::FilterType;
+use image::{DynamicImage, GenericImageView, RgbaImage};
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, RectToInsert,
     RectanglePackError, RectanglePackOk, TargetBin,
 };
 use std::collections::BTreeMap;
+
+const UPSCALE: f32 = 1.5;
 type PicId = usize;
 type BinId = u8;
 
@@ -26,8 +29,8 @@ pub struct Packer {
     bins: BTreeMap<BinId, TargetBin>,
     rects_to_place: GroupedRectsToPlace<PicId, BinId>,
     pic_placement: Result<RectanglePackOk<PicId, BinId>, RectanglePackError>,
-    result: Option<DynamicImage>,
-    preview: Option<RgbaImage>,
+    result: Option<RgbaImage>,
+    pub preview: Option<RgbaImage>,
 }
 
 impl Packer {
@@ -50,11 +53,12 @@ impl Packer {
         self.add_pics(load_new_pics(dropped_items, self.pics.len()));
         let side = (self.area_min as f32).sqrt() as u32;
         self.pack(side);
+        self.combine_pic();
     }
 
     fn bin(&mut self, width: u32, height: u32) {
         self.width = width;
-        self.width = height;
+        self.height = height;
         self.bins =
             BTreeMap::<BinId, TargetBin>::from([(self.bin_id, TargetBin::new(width, height, 1))]);
     }
@@ -73,7 +77,6 @@ impl Packer {
 
     fn pack(&mut self, side: u32) {
         self.bin(side, side);
-        println!("Side NOW: {}\n{:?}", self.width, self.bins);
         self.pic_placement = pack_rects(
             &self.rects_to_place,
             &mut self.bins,
@@ -82,8 +85,38 @@ impl Packer {
         );
         if self.pic_placement == Err(RectanglePackError::NotEnoughBinSpace) && self.width < u32::MAX
         {
-            println!("DOUBLE!!");
-            self.pack(side * 2);
+            self.pack((side as f32 * UPSCALE) as u32);
         }
+    }
+    fn combine_pic(&mut self) {
+        let mut combined = RgbaImage::new(self.width, self.height);
+        println!(
+            "-- Combined dims: {}x{}",
+            combined.width(),
+            combined.height()
+        );
+        if let Ok(packed) = &self.pic_placement {
+            for pic in &self.pics {
+                let loc = packed.packed_locations()[&pic.id].1;
+                let (dx, dy) = (loc.x(), loc.y());
+                println!("{:?} - {} {}", pic.id, loc.x(), loc.y());
+                for y in 0..(pic.height) {
+                    for x in 0..(pic.width) {
+                        combined.put_pixel(
+                            x + dx,
+                            pic.height - y + dy - 1,
+                            pic.raw_image.get_pixel(x, pic.height - y - 1),
+                        );
+                    }
+                }
+            }
+        }
+
+        self.preview = Some(
+            DynamicImage::ImageRgba8(combined.to_owned())
+                .resize_exact(500, 500, FilterType::Nearest)
+                .to_rgba8(),
+        );
+        self.result = Some(combined);
     }
 }
