@@ -1,13 +1,10 @@
-// extern crate fs_extra;
 use super::packer::Pic;
 use eframe::egui::DroppedFile;
-// use fs_extra::dir;
-// use size_format::SizeFormatterSI;
-use std::env;
+use image::{DynamicImage, GenericImageView, Rgba, RgbaImage};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-fn get_all_files(path: &Path) -> Vec<PathBuf> {
+pub fn get_all_files(path: &Path) -> Vec<PathBuf> {
     let mut result = Vec::<PathBuf>::new();
     if let Ok(metadata) = fs::metadata(&path) {
         if metadata.is_file() {
@@ -22,17 +19,31 @@ fn get_all_files(path: &Path) -> Vec<PathBuf> {
     }
     result
 }
-pub fn load_all_images(dropped_items: &[DroppedFile]) {
+
+pub fn load_new_pics(dropped_items: &[DroppedFile], last_id: usize) -> Vec<Pic> {
     let mut all_files = Vec::<PathBuf>::new();
+    let mut new_pics = Vec::<Pic>::new();
     for dropped in dropped_items {
         if let Some(path) = &dropped.path {
             all_files.extend(get_all_files(path))
         }
     }
+    let mut id = last_id;
     for file in all_files {
-        println!("{:?}", file);
+        if let Ok(image) = image::open(file) {
+            id += 1;
+            new_pics.push(Pic {
+                width: image.width(),
+                height: image.height(),
+                raw_image: image,
+                depth: 0,
+                id,
+            });
+        }
     }
+    new_pics
 }
+
 //fn walkdir(cur_dir: &str) -> Vec<Path> {
 //    let mut found_file = false;
 //    let mut links = Vec::<String>::new();

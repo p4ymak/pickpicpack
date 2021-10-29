@@ -1,9 +1,10 @@
-use super::loader::load_all_images;
+use super::loader::get_all_files;
 use super::packer::*;
 use eframe::{egui, epi};
 use egui::*;
 use epi::Storage;
 use image::{DynamicImage, GenericImageView, Rgba, RgbaImage};
+use std::path::PathBuf;
 
 enum Aspect {
     Square,
@@ -42,14 +43,14 @@ impl epi::App for P3App {
         "PickPicPack"
     }
 
-    fn setup(
-        &mut self,
-        ctx: &egui::CtxRef,
-        frame: &mut epi::Frame<'_>,
-        _storage: Option<&dyn Storage>,
-    ) {
-        println!("{:?}", self.max_size_points());
-    }
+    // fn setup(
+    //     &mut self,
+    //     ctx: &egui::CtxRef,
+    //     frame: &mut epi::Frame<'_>,
+    //     _storage: Option<&dyn Storage>,
+    // ) {
+    //     println!("{:?}", self.max_size_points());
+    // }
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
         if self.to_update {
             if let Some(texture) = self.texture {
@@ -115,14 +116,20 @@ impl P3App {
         if !ctx.input().raw.dropped_files.is_empty() {
             // self.packer
             // .add_pics(
-            load_all_images(&ctx.input().raw.dropped_files);
+            self.packer.update(&ctx.input().raw.dropped_files);
+            for pic in &self.packer.pics {
+                println!("ID: {}", pic.id);
+            }
+            println!("{}", self.packer.pics.len());
+            // self.preview = self
+            //     .packer
+            //     .pics_to_pack
+            //     .last()
+            //     .unwrap()
+            //     .raw_image
+            //     .clone()
+            // .into_rgba8();
+            self.to_update = true;
         }
-    }
-    fn load_images(&mut self, new_paths: Vec<egui::DroppedFile>) -> Vec<Pic> {
-        let mut new_pics = Vec::<Pic>::new();
-        for path in new_paths {
-            todo!()
-        }
-        new_pics
     }
 }
