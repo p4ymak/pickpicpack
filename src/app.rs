@@ -1,4 +1,5 @@
-use super::pack::*;
+use super::loader::load_all_images;
+use super::packer::*;
 use eframe::{egui, epi};
 use egui::*;
 use epi::Storage;
@@ -19,10 +20,8 @@ impl Default for Aspect {
 
 // #[derive(Default)]
 pub struct P3App {
-    aspect: Aspect,
-    dropped_files: Vec<egui::DroppedFile>,
-    // picked_path: Option<String>,
-    image: RgbaImage,
+    packer: Packer,
+    preview: RgbaImage,
     texture: Option<(egui::Vec2, egui::TextureId)>,
     to_update: bool,
 }
@@ -30,9 +29,8 @@ pub struct P3App {
 impl Default for P3App {
     fn default() -> P3App {
         P3App {
-            aspect: Aspect::None,
-            dropped_files: Vec::<egui::DroppedFile>::new(),
-            image: RgbaImage::new(300, 300),
+            packer: Packer::new(),
+            preview: RgbaImage::new(300, 300),
             texture: None,
             to_update: true,
         }
@@ -83,7 +81,7 @@ impl epi::App for P3App {
 
 impl P3App {
     fn image_prepare(&self) -> ((usize, usize), Vec<Color32>) {
-        let image = &self.image;
+        let image = &self.preview;
         // let image_buffer = image.to_rgba8();
         let size = (image.width() as usize, image.height() as usize);
         let pixels = image.clone().into_vec();
@@ -115,24 +113,16 @@ impl P3App {
 
         // Collect dropped files:
         if !ctx.input().raw.dropped_files.is_empty() {
-            self.dropped_files
-                .extend(ctx.input().raw.dropped_files.clone());
-            self.load_image();
+            // self.packer
+            // .add_pics(
+            load_all_images(&ctx.input().raw.dropped_files);
         }
     }
-    fn load_image(&mut self) {
-        let path = self.dropped_files.last().unwrap().path.as_ref();
-        if let Ok(img) = image::open(path.unwrap()) {
-            self.image = img.to_rgba8();
-            self.to_update = true;
+    fn load_images(&mut self, new_paths: Vec<egui::DroppedFile>) -> Vec<Pic> {
+        let mut new_pics = Vec::<Pic>::new();
+        for path in new_paths {
+            todo!()
         }
-        // let image_buffer = image.to_rgba8();
-        // let size = (image.width() as usize, image.height() as usize);
-        // let pixels = image_buffer.into_vec();
-        // assert_eq!(size.0 * size.1 * 4, pixels.len());
-        // let pixels: Vec<_> = pixels
-        //     .chunks_exact(4)
-        //     .map(|p| egui::Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
-        //     .collect();
+        new_pics
     }
 }

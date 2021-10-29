@@ -1,5 +1,6 @@
 mod app;
-mod pack;
+mod loader;
+mod packer;
 use app::*;
 use eframe::egui;
 
