@@ -117,10 +117,8 @@ impl P3App {
             // self.packer
             // .add_pics(
             self.packer.update(&ctx.input().raw.dropped_files);
-            for pic in &self.packer.pics {
-                println!("ID: {}", pic.id);
-            }
             println!("{}", self.packer.pics.len());
+            println!("Side: {}", self.packer.width);
             // self.preview = self
             //     .packer
             //     .pics_to_pack

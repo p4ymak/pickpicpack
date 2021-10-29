@@ -36,59 +36,10 @@ pub fn load_new_pics(dropped_items: &[DroppedFile], last_id: usize) -> Vec<Pic> 
                 width: image.width(),
                 height: image.height(),
                 raw_image: image,
-                depth: 0,
+                depth: 1,
                 id,
             });
         }
     }
     new_pics
 }
-
-//fn walkdir(cur_dir: &str) -> Vec<Path> {
-//    let mut found_file = false;
-//    let mut links = Vec::<String>::new();
-//    for entry in fs::read_dir(cur_dir).unwrap() {
-//        let entry = entry.unwrap();
-//        let path = entry.path();
-//        let metadata = fs::metadata(&path).unwrap();
-
-//        if metadata.is_file() {
-//            let file_name = path
-//                .file_name()
-//                .unwrap()
-//                .to_string_lossy()
-//                .to_string()
-//                .to_lowercase();
-//            if file_name.ends_with(".gitignore") {
-//                found_file = true;
-//            } else {
-//                for (i, ftype) in ftypes.iter().enumerate() {
-//                    if file_name.ends_with(ftype) {
-//                        //println!("Found {:?}", file_name);
-//                        counter[i] += 1;
-//                        if !found_file {
-//                            collected_dirs.push(cur_dir.to_string());
-//                            *size_total += dir::get_size(cur_dir).unwrap();
-//                        }
-//                        found_file = true;
-//                    }
-//                }
-//            }
-//        } else if metadata.is_dir() {
-//            let path_name = path.to_string_lossy().to_string();
-//            links.push(path_name);
-//        }
-//    }
-//    if !found_file {
-//        for link in links {
-//            walkdir(
-//                &link,
-//                &mut collected_dirs,
-//                &ftypes,
-//                &mut counter,
-//                &mut size_total,
-//            );
-//        }
-//    }
-//    todo!();
-//}
