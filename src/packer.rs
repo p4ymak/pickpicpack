@@ -1,6 +1,6 @@
 use super::loader::load_new_pics;
 use eframe::egui::DroppedFile;
-use image::imageops::FilterType;
+use image::imageops::{replace, FilterType};
 use image::{DynamicImage, GenericImageView, RgbaImage};
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, RectToInsert,
@@ -100,15 +100,7 @@ impl Packer {
                 let loc = packed.packed_locations()[&pic.id].1;
                 let (dx, dy) = (loc.x(), loc.y());
                 println!("{:?} - {} {}", pic.id, loc.x(), loc.y());
-                for y in 0..(pic.height) {
-                    for x in 0..(pic.width) {
-                        combined.put_pixel(
-                            x + dx,
-                            pic.height - y + dy - 1,
-                            pic.raw_image.get_pixel(x, pic.height - y - 1),
-                        );
-                    }
-                }
+                replace(&mut combined, &pic.raw_image, dx, dy);
             }
         }
 
