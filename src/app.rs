@@ -1,28 +1,24 @@
-use super::loader::get_all_files;
 use super::packer::*;
 use eframe::{egui, epi};
 use egui::*;
-use epi::Storage;
-use image::{DynamicImage, GenericImageView, Rgba, RgbaImage};
-use std::path::PathBuf;
+// use epi::Storage;
 
-enum Aspect {
-    Square,
-    Screen,
-    FourThree,
-    Custom(u32, u32),
-    None,
-}
-impl Default for Aspect {
-    fn default() -> Aspect {
-        Aspect::None
-    }
-}
+// enum Aspect {
+//     Square,
+//     Screen,
+//     FourThree,
+//     Custom(u32, u32),
+//     None,
+// }
+// impl Default for Aspect {
+//     fn default() -> Aspect {
+//         Aspect::None
+//     }
+// }
 
 // #[derive(Default)]
 pub struct P3App {
     packer: Packer,
-    preview: RgbaImage,
     texture: Option<(egui::Vec2, egui::TextureId)>,
     to_update: bool,
 }
@@ -31,7 +27,6 @@ impl Default for P3App {
     fn default() -> P3App {
         P3App {
             packer: Packer::new(),
-            preview: RgbaImage::new(300, 300),
             texture: None,
             to_update: true,
         }
@@ -56,18 +51,19 @@ impl epi::App for P3App {
             if let Some(texture) = self.texture {
                 frame.tex_allocator().free(texture.1);
             }
-            let (size, pixels) = self.image_prepare();
-            // Allocate a texture:
-            let texture = frame
-                .tex_allocator()
-                .alloc_srgba_premultiplied(size, &pixels);
-            let size = egui::Vec2::new(size.0 as f32, size.1 as f32);
-            self.texture = Some((size, texture));
+            if let Some(preview) = &self.packer.preview {
+                // Allocate a texture:
+                let texture = frame
+                    .tex_allocator()
+                    .alloc_srgba_premultiplied(preview.size, &preview.pixels);
+                let size = egui::Vec2::new(preview.size.0 as f32, preview.size.1 as f32);
+                self.texture = Some((size, texture));
+            }
+
             self.to_update = false;
         }
 
         //DRAW GUI
-
         egui::CentralPanel::default()
             .frame(Frame::default())
             .show(ctx, |ui| {
@@ -77,22 +73,11 @@ impl epi::App for P3App {
             });
 
         self.detect_files_being_dropped(ctx);
+        self.handle_keys(ctx);
     }
 }
 
 impl P3App {
-    fn image_prepare(&self) -> ((usize, usize), Vec<Color32>) {
-        let image = &self.preview;
-        // let image_buffer = image.to_rgba8();
-        let size = (image.width() as usize, image.height() as usize);
-        let pixels = image.clone().into_vec();
-        assert_eq!(size.0 * size.1 * 4, pixels.len());
-        let pixels: Vec<_> = pixels
-            .chunks_exact(4)
-            .map(|p| egui::Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
-            .collect();
-        (size, pixels)
-    }
     fn detect_files_being_dropped(&mut self, ctx: &egui::CtxRef) {
         // Preview hovering files:
         if !ctx.input().raw.hovered_files.is_empty() {
@@ -114,21 +99,37 @@ impl P3App {
 
         // Collect dropped files:
         if !ctx.input().raw.dropped_files.is_empty() {
-            // self.packer
-            // .add_pics(
             self.packer.update(&ctx.input().raw.dropped_files);
-            println!("{}", self.packer.pics.len());
-            println!("Side: {}", self.packer.width);
-            self.preview = self.packer.preview.to_owned().unwrap();
-            // self.preview = self
-            //     .packer
-            //     .pics_to_pack
-            //     .last()
-            //     .unwrap()
-            //     .raw_image
-            //     .clone()
-            // .into_rgba8();
             self.to_update = true;
         }
+    }
+
+    fn handle_keys(&mut self, ctx: &egui::CtxRef) {
+        for event in &ctx.input().raw.events {
+            match event {
+                Event::Key {
+                    key: egui::Key::Backspace,
+                    pressed: true,
+                    ..
+                } => self.undo(),
+
+                Event::Key {
+                    key: egui::Key::Escape,
+                    pressed: true,
+                    ..
+                } => self.clear(),
+
+                _ => (),
+            }
+            self.to_update = true;
+        }
+    }
+
+    // Key Functions
+    fn clear(&mut self) {
+        self.packer = Packer::new();
+    }
+    fn undo(&mut self) {
+        self.packer.undo();
     }
 }

@@ -1,8 +1,9 @@
 use eframe::egui::DroppedFile;
-use image::{DynamicImage, GenericImageView, Rgba, RgbaImage};
+use image::GenericImageView;
 // use imagesize::size;
 use std::fs;
 use std::path::{Path, PathBuf};
+
 pub type PicId = usize;
 pub struct Pic {
     // pub raw_image: DynamicImage,
