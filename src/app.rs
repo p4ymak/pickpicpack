@@ -80,25 +80,13 @@ impl epi::App for P3App {
 impl P3App {
     fn detect_files_being_dropped(&mut self, ctx: &egui::CtxRef) {
         // Preview hovering files:
-        if !ctx.input().raw.hovered_files.is_empty() {
-            let text = "Dropping files!".to_owned();
-
-            let painter =
-                ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("file_drop_target")));
-
-            let screen_rect = ctx.input().screen_rect();
-            painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
-            painter.text(
-                screen_rect.center(),
-                Align2::CENTER_CENTER,
-                text,
-                TextStyle::Heading,
-                Color32::WHITE,
-            );
-        }
+        // if !ctx.input().raw.hovered_files.is_empty() {
+        // self.fader(ctx, "drop here");
+        // }
 
         // Collect dropped files:
         if !ctx.input().raw.dropped_files.is_empty() {
+            self.fader(ctx, "packing");
             self.packer.update(&ctx.input().raw.dropped_files);
             self.to_update = true;
         }
@@ -111,13 +99,13 @@ impl P3App {
                     key: egui::Key::Backspace,
                     pressed: true,
                     ..
-                } => self.undo(),
+                } => self.undo(ctx),
 
                 Event::Key {
                     key: egui::Key::Escape,
                     pressed: true,
                     ..
-                } => self.clear(),
+                } => self.clear(ctx),
 
                 _ => (),
             }
@@ -125,11 +113,26 @@ impl P3App {
         }
     }
 
+    //UI reaction
+    fn fader(&mut self, ctx: &egui::CtxRef, text: &str) {
+        let painter = ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("fader")));
+        let screen_rect = ctx.input().screen_rect();
+        painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
+        painter.text(
+            screen_rect.center(),
+            Align2::CENTER_CENTER,
+            text,
+            TextStyle::Heading,
+            Color32::WHITE,
+        );
+    }
     // Key Functions
-    fn clear(&mut self) {
+    fn clear(&mut self, ctx: &egui::CtxRef) {
+        self.fader(ctx, "clear");
         self.packer = Packer::new();
     }
-    fn undo(&mut self) {
+    fn undo(&mut self, ctx: &egui::CtxRef) {
+        self.fader(ctx, "undo");
         self.packer.undo();
     }
 }
