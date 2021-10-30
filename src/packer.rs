@@ -1,4 +1,4 @@
-use super::loader::load_new_pics;
+use super::loader::{load_new_pics, Pic, PicId};
 use eframe::egui::DroppedFile;
 use image::imageops::{replace, thumbnail, FilterType};
 use image::{DynamicImage, GenericImageView, RgbaImage};
@@ -9,16 +9,7 @@ use rectangle_pack::{
 use std::collections::BTreeMap;
 
 const UPSCALE: f32 = 1.5;
-type PicId = usize;
 type BinId = u8;
-
-pub struct Pic {
-    pub raw_image: DynamicImage,
-    pub width: u32,
-    pub height: u32,
-    pub depth: u32,
-    pub id: PicId,
-}
 
 pub struct Packer {
     pub pics: Vec<Pic>,
@@ -98,13 +89,14 @@ impl Packer {
         );
         if let Ok(packed) = &self.pic_placement {
             for pic in &self.pics {
-                let loc = packed.packed_locations()[&pic.id].1;
-                let (dx, dy) = (loc.x(), loc.y());
-                println!("{:?} - {} {}", pic.id, loc.x(), loc.y());
-                replace(&mut combined, &pic.raw_image, dx, dy);
+                if let Ok(image) = image::open(&pic.file) {
+                    let loc = packed.packed_locations()[&pic.id].1;
+                    let (dx, dy) = (loc.x(), loc.y());
+                    println!("{:?} - {} {}", pic.id, loc.x(), loc.y());
+                    replace(&mut combined, &image, dx, dy);
+                }
             }
         }
-
         self.preview = Some(thumbnail(&combined, 500, 500));
         self.result = Some(combined);
     }
