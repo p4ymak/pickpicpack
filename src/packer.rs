@@ -8,7 +8,7 @@ use rectangle_pack::{
 };
 use std::collections::BTreeMap;
 
-const UPSCALE: f32 = 1.1;
+const UPSCALE: f32 = std::f32::consts::LOG2_E;
 const SIDE: usize = 500;
 
 type BinId = u8;
@@ -73,7 +73,7 @@ impl Packer {
     }
 
     fn pack(&mut self) {
-        let mut half_perimeter = 0;
+        let mut area = 0;
         let mut rects_to_place = GroupedRectsToPlace::new();
         for pic in self.pics.iter().flatten() {
             rects_to_place.push_rect(
@@ -81,9 +81,9 @@ impl Packer {
                 Some(vec![BINID]),
                 RectToInsert::new(pic.width, pic.height, pic.depth),
             );
-            half_perimeter += pic.width.max(pic.height);
+            area += pic.width * pic.height;
         }
-        let side = (half_perimeter as f32).sqrt() as u32;
+        let side = (area as f32).sqrt() as u32;
         println!("Trying to PACK!!");
         let (pic_placement, side) = try_pack(side, &rects_to_place);
         self.pic_placement = pic_placement;
