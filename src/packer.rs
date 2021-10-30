@@ -8,7 +8,7 @@ use rectangle_pack::{
 };
 use std::collections::BTreeMap;
 
-const UPSCALE: f32 = 1.5;
+const UPSCALE: f32 = 1.1;
 const SIDE: usize = 500;
 
 type BinId = u8;
@@ -53,7 +53,7 @@ impl Packer {
         }
         // let side = (self.area_min as f32).sqrt() as u32;
         self.pack();
-        self.combine_pic();
+        self.combine_preview();
     }
 
     pub fn undo(&mut self) {
@@ -73,7 +73,7 @@ impl Packer {
     }
 
     fn pack(&mut self) {
-        let mut area = 0;
+        let mut half_perimeter = 0;
         let mut rects_to_place = GroupedRectsToPlace::new();
         for pic in self.pics.iter().flatten() {
             rects_to_place.push_rect(
@@ -81,9 +81,9 @@ impl Packer {
                 Some(vec![BINID]),
                 RectToInsert::new(pic.width, pic.height, pic.depth),
             );
-            area += pic.width * pic.height;
+            half_perimeter += pic.width.max(pic.height);
         }
-        let side = (area as f32).sqrt() as u32;
+        let side = (half_perimeter as f32).sqrt() as u32;
         println!("Trying to PACK!!");
         let (pic_placement, side) = try_pack(side, &rects_to_place);
         self.pic_placement = pic_placement;
@@ -91,32 +91,67 @@ impl Packer {
         self.height = side;
     }
 
-    fn combine_pic(&mut self) {
-        self.result = None;
+    fn combine_preview(&mut self) {
         self.preview = None;
+        let div = SIDE as f32 / self.width as f32;
+
         if let Ok(packed) = &self.pic_placement {
             if !self.pics.is_empty() {
-                let mut combined = RgbaImage::new(self.width, self.height);
+                let mut combined = RgbaImage::new(SIDE as u32, SIDE as u32);
                 for pic in (&self.pics).iter().flatten() {
                     if let Ok(image) = image::open(&pic.file) {
+                        let thumbnail = thumbnail(
+                            &image,
+                            (pic.width as f32 * div) as u32,
+                            (pic.height as f32 * div) as u32,
+                        );
                         let loc = packed.packed_locations()[&pic.id].1;
-                        let (dx, dy) = (loc.x(), loc.y());
+                        let (dx, dy) =
+                            ((loc.x() as f32 * div) as u32, (loc.y() as f32 * div) as u32);
                         // println!("{:?} - {} {}", pic.id, loc.x(), loc.y());
-                        replace(&mut combined, &image, dx, dy);
+                        replace(&mut combined, &thumbnail, dx, dy);
                     }
                 }
 
                 self.preview = Some(Preview {
                     size: (SIDE, SIDE),
-                    pixels: thumbnail(&combined, SIDE as u32, SIDE as u32)
+                    pixels: combined
                         .pixels()
                         .map(|p| Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
                         .collect(),
                 });
-                self.result = Some(combined);
             }
         }
     }
+
+    // fn combine_pic(&mut self) {
+    //     self.result = None;
+    //     self.preview = None;
+    //     let div = SIDE as f32 / self.width as f32;
+
+    //     if let Ok(packed) = &self.pic_placement {
+    //         if !self.pics.is_empty() {
+    //             let mut combined = RgbaImage::new(self.width, self.height);
+    //             for pic in (&self.pics).iter().flatten() {
+    //                 if let Ok(image) = image::open(&pic.file) {
+    //                     let loc = packed.packed_locations()[&pic.id].1;
+    //                     let (dx, dy) = (loc.x(), loc.y());
+    //                     // println!("{:?} - {} {}", pic.id, loc.x(), loc.y());
+    //                     replace(&mut combined, &image, dx, dy);
+    //                 }
+    //             }
+
+    //             self.preview = Some(Preview {
+    //                 size: (SIDE, SIDE),
+    //                 pixels: thumbnail(&combined, SIDE as u32, SIDE as u32)
+    //                     .pixels()
+    //                     .map(|p| Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
+    //                     .collect(),
+    //             });
+    //             self.result = Some(combined);
+    //         }
+    //     }
+    // }
 }
 
 fn bin(width: u32, height: u32) -> Bin {
