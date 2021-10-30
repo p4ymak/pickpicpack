@@ -421,6 +421,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "crunch"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ec1ceeb2c7de0839185c61e990ea3416be50cb55930d421402ef891db0eef76"
+
+[[package]]
 name = "darling"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1386,9 +1392,9 @@ checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
 name = "pickpicpack"
 version = "0.1.0"
 dependencies = [
+ "crunch",
  "eframe",
  "image",
- "rectangle-pack",
  "rfd",
 ]
 
@@ -1480,12 +1486,6 @@ dependencies = [
  "lazy_static",
  "num_cpus",
 ]
-
-[[package]]
-name = "rectangle-pack"
-version = "0.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0d463f2884048e7153449a55166f91028d5b0ea53c79377099ce4e8cf0cf9bb"
 
 [[package]]
 name = "redox_syscall"

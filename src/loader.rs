@@ -1,17 +1,16 @@
 use eframe::egui::DroppedFile;
 use image::GenericImageView;
 // use imagesize::size;
+use crunch::{Item, Rotation};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub type PicId = usize;
+#[derive(Clone)]
 pub struct Pic {
     // pub raw_image: DynamicImage,
     pub file: PathBuf,
     pub width: u32,
     pub height: u32,
-    pub depth: u32,
-    pub id: PicId,
 }
 
 pub fn get_all_files(path: &Path) -> Vec<PathBuf> {
@@ -30,26 +29,27 @@ pub fn get_all_files(path: &Path) -> Vec<PathBuf> {
     result
 }
 
-pub fn load_new_pics(dropped_items: &[DroppedFile], last_id: usize) -> Vec<Pic> {
+pub fn load_new_items(dropped_items: &[DroppedFile]) -> Vec<Item<Pic>> {
     let mut all_files = Vec::<PathBuf>::new();
-    let mut new_pics = Vec::<Pic>::new();
+    let mut new_items = Vec::<Item<Pic>>::new();
     for dropped in dropped_items {
         if let Some(path) = &dropped.path {
             all_files.extend(get_all_files(path))
         }
     }
-    let mut id = last_id;
     for file in all_files {
         if let Ok(image) = image::open(&file) {
-            id += 1;
-            new_pics.push(Pic {
-                file: file.to_owned(),
-                width: image.width(),
-                height: image.height(),
-                depth: 1,
-                id,
-            });
+            new_items.push(Item::new(
+                Pic {
+                    file: file.to_owned(),
+                    width: image.width(),
+                    height: image.height(),
+                },
+                image.width() as usize,
+                image.height() as usize,
+                Rotation::None,
+            ));
         }
     }
-    new_pics
+    new_items
 }
