@@ -1,6 +1,6 @@
 use super::loader::load_new_pics;
 use eframe::egui::DroppedFile;
-use image::imageops::{replace, FilterType};
+use image::imageops::{replace, thumbnail, FilterType};
 use image::{DynamicImage, GenericImageView, RgbaImage};
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, RectToInsert,
@@ -89,6 +89,7 @@ impl Packer {
         }
     }
     fn combine_pic(&mut self) {
+        self.result = None;
         let mut combined = RgbaImage::new(self.width, self.height);
         println!(
             "-- Combined dims: {}x{}",
@@ -104,11 +105,7 @@ impl Packer {
             }
         }
 
-        self.preview = Some(
-            DynamicImage::ImageRgba8(combined.to_owned())
-                .resize_exact(500, 500, FilterType::Nearest)
-                .to_rgba8(),
-        );
+        self.preview = Some(thumbnail(&combined, 500, 500));
         self.result = Some(combined);
     }
 }
