@@ -97,7 +97,7 @@ impl P3App {
             match event {
                 Event::Key {
                     key: egui::Key::Backspace,
-                    pressed: true,
+                    pressed: false,
                     ..
                 } => self.undo(ctx),
 
