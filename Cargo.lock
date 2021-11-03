@@ -1396,6 +1396,7 @@ dependencies = [
  "eframe",
  "image",
  "rfd",
+ "winit",
 ]
 
 [[package]]

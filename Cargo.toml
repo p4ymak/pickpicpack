@@ -1,7 +1,7 @@
 [package]
 name = "pickpicpack"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 authors = ["Roman Chumak <p4ymak@gmail.com>"]
 resolver = "2"
 
@@ -10,6 +10,7 @@ eframe = "0.15.0"
 rfd = "0.5.1"
 image = "0.23.14"
 crunch = "0.3.3"
+winit = "0.25.0"
 # imagesize = "0.9.0"
 # rectangle-pack = "0.4.2"
 

@@ -21,6 +21,7 @@ pub struct P3App {
     packer: Packer,
     texture: Option<(egui::Vec2, egui::TextureId)>,
     to_update: bool,
+    // side: f32,
 }
 
 impl Default for P3App {
@@ -28,7 +29,7 @@ impl Default for P3App {
         P3App {
             packer: Packer::new(),
             texture: None,
-            to_update: true,
+            to_update: false,
         }
     }
 }
@@ -44,7 +45,7 @@ impl epi::App for P3App {
     //     frame: &mut epi::Frame<'_>,
     //     _storage: Option<&dyn Storage>,
     // ) {
-    //     println!("{:?}", self.max_size_points());
+    //     // self.packer.side = frame.margin.x;
     // }
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
         if self.to_update {
@@ -80,13 +81,14 @@ impl epi::App for P3App {
 impl P3App {
     fn detect_files_being_dropped(&mut self, ctx: &egui::CtxRef) {
         // Preview hovering files:
-        // if !ctx.input().raw.hovered_files.is_empty() {
-        // self.fader(ctx, "drop here");
+        // for file in &ctx.input().raw.hovered_files {
+        //     println!("{:?}", file.mime);
         // }
 
         // Collect dropped files:
         if !ctx.input().raw.dropped_files.is_empty() {
             self.fader(ctx, "packing");
+            self.packer.side = ctx.input().screen_rect().width();
             self.packer.update(&ctx.input().raw.dropped_files);
             self.to_update = true;
         }
@@ -109,7 +111,6 @@ impl P3App {
 
                 _ => (),
             }
-            self.to_update = true;
         }
     }
 
@@ -130,9 +131,11 @@ impl P3App {
     fn clear(&mut self, ctx: &egui::CtxRef) {
         self.fader(ctx, "clear");
         self.packer = Packer::new();
+        self.to_update = true;
     }
     fn undo(&mut self, ctx: &egui::CtxRef) {
         self.fader(ctx, "undo");
         self.packer.undo();
+        self.to_update = true;
     }
 }
