@@ -65,14 +65,15 @@ impl epi::App for P3App {
         }
 
         //DRAW GUI
-        egui::CentralPanel::default()
-            .frame(Frame::default())
+        egui::Area::new("image")
+            .order(Order::Background)
             .show(ctx, |ui| {
                 if let Some((size, texture)) = self.texture {
                     ui.image(texture, size);
                 }
             });
 
+        self.hud(ctx);
         self.detect_files_being_dropped(ctx);
         self.handle_keys(ctx);
     }
@@ -115,6 +116,21 @@ impl P3App {
     }
 
     //UI reaction
+
+    fn hud(&mut self, ctx: &egui::CtxRef) {
+        egui::Area::new("menu")
+            .order(Order::Foreground)
+            .show(ctx, |ui| {
+                ui.label("HELLO!!");
+                if ui
+                    .add_enabled(false, egui::Button::new("Can't click this"))
+                    .clicked()
+                {
+                    unreachable!();
+                }
+            });
+    }
+
     fn fader(&mut self, ctx: &egui::CtxRef, text: &str) {
         let painter = ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("fader")));
         let screen_rect = ctx.input().screen_rect();
