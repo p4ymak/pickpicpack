@@ -60,11 +60,10 @@ impl epi::App for P3App {
                 let size = egui::Vec2::new(preview.size.0 as f32, preview.size.1 as f32);
                 self.texture = Some((size, texture));
             }
-
             self.to_update = false;
         }
 
-        //DRAW GUI
+        //Draw Image
         egui::Area::new("image")
             .order(Order::Background)
             .show(ctx, |ui| {
@@ -73,7 +72,11 @@ impl epi::App for P3App {
                 }
             });
 
-        self.hud(ctx);
+        //Draw GUI if mouse hovered window
+        if self.packer.items.is_empty() || ctx.input().pointer.has_pointer() {
+            self.hud(ctx);
+        }
+
         self.detect_files_being_dropped(ctx);
         self.handle_keys(ctx);
     }
@@ -115,19 +118,20 @@ impl P3App {
         }
     }
 
-    //UI reaction
-
+    //GUI reaction
     fn hud(&mut self, ctx: &egui::CtxRef) {
         egui::Area::new("menu")
             .order(Order::Foreground)
-            .show(ctx, |ui| {
-                ui.label("HELLO!!");
-                if ui
-                    .add_enabled(false, egui::Button::new("Can't click this"))
-                    .clicked()
-                {
-                    unreachable!();
-                }
+            .show(ctx, |panel| {
+                panel.horizontal(|ui| {
+                    ui.label("HELLO!!");
+                    if ui
+                        .add_enabled(false, egui::Button::new("Can't click this"))
+                        .clicked()
+                    {
+                        unreachable!();
+                    }
+                })
             });
     }
 
@@ -143,6 +147,7 @@ impl P3App {
             Color32::WHITE,
         );
     }
+
     // Key Functions
     fn clear(&mut self, ctx: &egui::CtxRef) {
         self.fader(ctx, "clear");
