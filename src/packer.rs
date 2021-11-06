@@ -4,6 +4,17 @@ use eframe::egui::{Color32, DroppedFile};
 use image::imageops::{replace, thumbnail};
 use image::RgbaImage;
 
+#[derive(PartialEq, Debug)]
+pub enum Aspect {
+    Square,
+    Screen,
+    FourThree,
+    ThreeFour,
+    SixteenNine,
+    NineSixteen,
+    // Custom(u32, u32),
+}
+
 pub struct Preview {
     pub size: (usize, usize),
     pub pixels: Vec<Color32>,

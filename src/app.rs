@@ -1,35 +1,33 @@
 use super::packer::*;
 use eframe::{egui, epi};
 use egui::*;
+use std::path::{Path, PathBuf};
 // use epi::Storage;
 
-// enum Aspect {
-//     Square,
-//     Screen,
-//     FourThree,
-//     Custom(u32, u32),
-//     None,
-// }
-// impl Default for Aspect {
-//     fn default() -> Aspect {
-//         Aspect::None
-//     }
-// }
+impl Default for Aspect {
+    fn default() -> Aspect {
+        Aspect::Square
+    }
+}
 
 // #[derive(Default)]
 pub struct P3App {
+    aspect: Aspect,
     packer: Packer,
     texture: Option<(egui::Vec2, egui::TextureId)>,
     to_update: bool,
+    export_path: PathBuf,
     // side: f32,
 }
 
 impl Default for P3App {
     fn default() -> P3App {
         P3App {
+            aspect: Aspect::default(),
             packer: Packer::new(),
             texture: None,
             to_update: false,
+            export_path: PathBuf::new(),
         }
     }
 }
@@ -83,6 +81,72 @@ impl epi::App for P3App {
 }
 
 impl P3App {
+    //GUI reaction
+    fn hud(&mut self, ctx: &egui::CtxRef) {
+        egui::Area::new("menu")
+            .order(Order::Foreground)
+            .movable(false)
+            .show(ctx, |panel| {
+                panel.horizontal_top(|ui| {
+                    //RADIO - SET RATIO
+                    ui.vertical(|ratio| {
+                        if ratio
+                            .selectable_value(&mut self.aspect, Aspect::Square, "Square")
+                            .clicked()
+                            || ratio
+                                .selectable_value(&mut self.aspect, Aspect::Screen, "Screen")
+                                .clicked()
+                            || ratio
+                                .selectable_value(&mut self.aspect, Aspect::FourThree, "4 : 3")
+                                .clicked()
+                            || ratio
+                                .selectable_value(&mut self.aspect, Aspect::ThreeFour, "3 : 4")
+                                .clicked()
+                            || ratio
+                                .selectable_value(&mut self.aspect, Aspect::SixteenNine, "16 : 9")
+                                .clicked()
+                            || ratio
+                                .selectable_value(&mut self.aspect, Aspect::NineSixteen, "9 : 16")
+                                .clicked()
+                        {
+                            // self.to_update = true;
+                            println!("{:?}", self.aspect);
+                        }
+                    });
+
+                    //BUTTON - SET PATH
+                    let button_path = ui.button("Export to...");
+                    if button_path.clicked() {
+                        if let Some(path) = rfd::FileDialog::new()
+                            .set_directory(&self.export_path)
+                            .pick_folder()
+                        {
+                            self.export_path = path;
+                        }
+                    }
+
+                    //BUTTON - EXPORT
+                    let button_export = ui.button("Export");
+                    if button_export.clicked() {
+                        todo!();
+                    }
+                })
+            });
+    }
+
+    fn fader(&mut self, ctx: &egui::CtxRef, text: &str) {
+        let painter = ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("fader")));
+        let screen_rect = ctx.input().screen_rect();
+        painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
+        painter.text(
+            screen_rect.center(),
+            Align2::CENTER_CENTER,
+            text,
+            TextStyle::Heading,
+            Color32::WHITE,
+        );
+    }
+
     fn detect_files_being_dropped(&mut self, ctx: &egui::CtxRef) {
         // Preview hovering files:
         // for file in &ctx.input().raw.hovered_files {
@@ -116,36 +180,6 @@ impl P3App {
                 _ => (),
             }
         }
-    }
-
-    //GUI reaction
-    fn hud(&mut self, ctx: &egui::CtxRef) {
-        egui::Area::new("menu")
-            .order(Order::Foreground)
-            .show(ctx, |panel| {
-                panel.horizontal(|ui| {
-                    ui.label("HELLO!!");
-                    if ui
-                        .add_enabled(false, egui::Button::new("Can't click this"))
-                        .clicked()
-                    {
-                        unreachable!();
-                    }
-                })
-            });
-    }
-
-    fn fader(&mut self, ctx: &egui::CtxRef, text: &str) {
-        let painter = ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("fader")));
-        let screen_rect = ctx.input().screen_rect();
-        painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
-        painter.text(
-            screen_rect.center(),
-            Align2::CENTER_CENTER,
-            text,
-            TextStyle::Heading,
-            Color32::WHITE,
-        );
     }
 
     // Key Functions
