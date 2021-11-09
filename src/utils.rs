@@ -13,21 +13,20 @@ pub fn window_width(div: f32) -> f32 {
     };
     360.0
 }
+
 pub fn get_screen_size() -> RectSize {
     if let Some(monitor) = EventLoop::new().primary_monitor() {
         let size = monitor.size();
-        return RectSize {
-            w: size.width as usize,
-            h: size.height as usize,
-        };
+        return RectSize::new(size.width as usize, size.height as usize);
     };
-    RectSize { w: 1280, h: 720 }
+    RectSize::new(1280, 720)
 }
 
 pub fn export_file_path(path: &Path, ext: &str) -> PathBuf {
-    let time_stamp = Local::now().format("%Y%m%d_%H-%M-%S");
+    let time_stamp = Local::now().format("%Y-%m-%d_%H-%M-%S");
     Path::new(path).join(format!("{}_{}.{}", OUTPUT_NAME, time_stamp, ext))
 }
+
 #[derive(PartialEq, Debug)]
 pub enum AspectRatio {
     Square,
