@@ -1,50 +1,38 @@
 use super::packer::*;
+use super::utils::*;
 use eframe::{egui, epi};
 use egui::*;
-use std::path::{Path, PathBuf};
-// use epi::Storage;
+use epi::Storage;
+use std::path::PathBuf;
 
-impl Default for Aspect {
-    fn default() -> Aspect {
-        Aspect::Square
-    }
-}
-
-// #[derive(Default)]
+#[derive(Default)]
 pub struct P3App {
-    aspect: Aspect,
+    aspect: AspectRatio,
+    export_scale: ImageScaling,
+    preview_size: RectSize,
+    export_size: RectSize,
+    ratio: f32,
     packer: Packer,
     texture: Option<(egui::Vec2, egui::TextureId)>,
     to_update: bool,
     export_path: PathBuf,
-    // side: f32,
-}
-
-impl Default for P3App {
-    fn default() -> P3App {
-        P3App {
-            aspect: Aspect::default(),
-            packer: Packer::new(),
-            texture: None,
-            to_update: false,
-            export_path: PathBuf::new(),
-        }
-    }
 }
 
 impl epi::App for P3App {
     fn name(&self) -> &str {
-        "PickPicPack"
+        OUTPUT_NAME
     }
 
-    // fn setup(
-    //     &mut self,
-    //     ctx: &egui::CtxRef,
-    //     frame: &mut epi::Frame<'_>,
-    //     _storage: Option<&dyn Storage>,
-    // ) {
-    //     // self.packer.side = frame.margin.x;
-    // }
+    fn setup(
+        &mut self,
+        ctx: &egui::CtxRef,
+        frame: &mut epi::Frame<'_>,
+        _storage: Option<&dyn Storage>,
+    ) {
+        // self.packer.side = frame.margin.x;
+        self.preview_size = RectSize::new(512, 512);
+        self.export_size = RectSize::new(512, 512);
+    }
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
         if self.to_update {
             if let Some(texture) = self.texture {
@@ -54,8 +42,8 @@ impl epi::App for P3App {
                 // Allocate a texture:
                 let texture = frame
                     .tex_allocator()
-                    .alloc_srgba_premultiplied(preview.size, &preview.pixels);
-                let size = egui::Vec2::new(preview.size.0 as f32, preview.size.1 as f32);
+                    .alloc_srgba_premultiplied((preview.size.w, preview.size.h), &preview.pixels);
+                let size = egui::Vec2::new(preview.size.w as f32, preview.size.h as f32);
                 self.texture = Some((size, texture));
             }
             self.to_update = false;
@@ -83,54 +71,135 @@ impl epi::App for P3App {
 impl P3App {
     //GUI reaction
     fn hud(&mut self, ctx: &egui::CtxRef) {
-        egui::Area::new("menu")
-            .order(Order::Foreground)
-            .movable(false)
+        egui::Window::new("Settings")
+            // .frame(egui::containers::Frame::default())
+            // .anchor(egui::Align2::CENTER_TOP, [0.0, 0.0])
+            .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
+            //.default_pos([0.0, 0.0])
+            .resizable(false)
+            // .collapsible(false)
             .show(ctx, |panel| {
-                panel.horizontal_top(|ui| {
+                panel.vertical(|ui| {
                     //RADIO - SET RATIO
-                    ui.vertical(|ratio| {
+                    ui.horizontal_top(|ratio| {
+                        ratio.label("Ratio:");
                         if ratio
-                            .selectable_value(&mut self.aspect, Aspect::Square, "Square")
+                            .selectable_value(&mut self.aspect, AspectRatio::Square, "Square")
                             .clicked()
                             || ratio
-                                .selectable_value(&mut self.aspect, Aspect::Screen, "Screen")
+                                .selectable_value(&mut self.aspect, AspectRatio::Screen, "Screen")
                                 .clicked()
                             || ratio
-                                .selectable_value(&mut self.aspect, Aspect::FourThree, "4 : 3")
+                                .selectable_value(&mut self.aspect, AspectRatio::FourThree, "4 : 3")
                                 .clicked()
                             || ratio
-                                .selectable_value(&mut self.aspect, Aspect::ThreeFour, "3 : 4")
+                                .selectable_value(&mut self.aspect, AspectRatio::ThreeFour, "3 : 4")
                                 .clicked()
                             || ratio
-                                .selectable_value(&mut self.aspect, Aspect::SixteenNine, "16 : 9")
+                                .selectable_value(
+                                    &mut self.aspect,
+                                    AspectRatio::SixteenNine,
+                                    "16 : 9",
+                                )
                                 .clicked()
                             || ratio
-                                .selectable_value(&mut self.aspect, Aspect::NineSixteen, "9 : 16")
+                                .selectable_value(
+                                    &mut self.aspect,
+                                    AspectRatio::NineSixteen,
+                                    "9 : 16",
+                                )
                                 .clicked()
                         {
                             // self.to_update = true;
                             println!("{:?}", self.aspect);
                         }
                     });
-
-                    //BUTTON - SET PATH
-                    let button_path = ui.button("Export to...");
-                    if button_path.clicked() {
-                        if let Some(path) = rfd::FileDialog::new()
-                            .set_directory(&self.export_path)
-                            .pick_folder()
+                    //RADIO - EXPORT SIZE
+                    ui.horizontal_top(|export_size| {
+                        export_size.label("Size:");
+                        if export_size
+                            .selectable_value(
+                                &mut self.export_scale,
+                                ImageScaling::FitScreen,
+                                "Fit Screen",
+                            )
+                            .clicked()
+                            || export_size
+                                .selectable_value(
+                                    &mut self.export_scale,
+                                    ImageScaling::HalfK,
+                                    "512",
+                                )
+                                .clicked()
+                            || export_size
+                                .selectable_value(
+                                    &mut self.export_scale,
+                                    ImageScaling::OneK,
+                                    "1024",
+                                )
+                                .clicked()
+                            || export_size
+                                .selectable_value(
+                                    &mut self.export_scale,
+                                    ImageScaling::TwoK,
+                                    "2048",
+                                )
+                                .clicked()
+                            || export_size
+                                .selectable_value(
+                                    &mut self.export_scale,
+                                    ImageScaling::FourK,
+                                    "4096",
+                                )
+                                .clicked()
+                            || export_size
+                                .selectable_value(
+                                    &mut self.export_scale,
+                                    ImageScaling::Actual,
+                                    "Actual",
+                                )
+                                .clicked()
                         {
-                            self.export_path = path;
+                            // self.to_update = true;
+                            println!("{:?}", self.export_scale);
                         }
-                    }
-
+                    });
+                    //BUTTON - SET PATH
+                    ui.horizontal_wrapped(|export_path| {
+                        export_path.label("Export path:");
+                        let button_path = export_path.button("Choose directory...");
+                        if button_path.clicked() {
+                            if let Some(path) = rfd::FileDialog::new()
+                                .set_directory(&self.export_path)
+                                .pick_folder()
+                            {
+                                self.export_path = path;
+                            }
+                        }
+                    });
                     //BUTTON - EXPORT
-                    let button_export = ui.button("Export");
-                    if button_export.clicked() {
-                        todo!();
-                    }
+                    ui.separator();
+                    ui.horizontal_wrapped(|apply| {
+                        let button_apply = apply.button("Apply");
+
+                        if button_apply.clicked() {
+                            self.packer.preview_size = self.preview_size;
+                            self.packer.export_size = self.export_size;
+                            self.to_update = true;
+                        }
+                    });
                 })
+            });
+        egui::Area::new("Export")
+            // .frame(egui::containers::Frame::default())
+            // .anchor(egui::Align2::CENTER_TOP, [0.0, 0.0])
+            .anchor(egui::Align2::RIGHT_BOTTOM, [0.0, 0.0])
+            //.default_pos([0.0, 0.0])
+            // .collapsible(false)
+            .show(ctx, |panel| {
+                if panel.button("Export").clicked() {
+                    self.packer.export(&self.export_path);
+                };
             });
     }
 
@@ -148,7 +217,7 @@ impl P3App {
     }
 
     fn detect_files_being_dropped(&mut self, ctx: &egui::CtxRef) {
-        // Preview hovering files:
+        // Preview hvering files:
         // for file in &ctx.input().raw.hovered_files {
         //     println!("{:?}", file.mime);
         // }
@@ -156,8 +225,9 @@ impl P3App {
         // Collect dropped files:
         if !ctx.input().raw.dropped_files.is_empty() {
             self.fader(ctx, "packing");
-            self.packer.side = ctx.input().screen_rect().width();
-            self.packer.update(&ctx.input().raw.dropped_files);
+
+            self.packer
+                .update(&ctx.input().raw.dropped_files, self.preview_size);
             self.to_update = true;
         }
     }
@@ -185,7 +255,7 @@ impl P3App {
     // Key Functions
     fn clear(&mut self, ctx: &egui::CtxRef) {
         self.fader(ctx, "clear");
-        self.packer = Packer::new();
+        self.packer = Packer::new(self.preview_size, self.export_size, self.ratio);
         self.to_update = true;
     }
     fn undo(&mut self, ctx: &egui::CtxRef) {

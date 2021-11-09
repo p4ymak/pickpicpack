@@ -11,6 +11,7 @@ rfd = "0.5.1"
 image = "0.23.14"
 crunch = "0.3.3"
 winit = "0.25.0"
+chrono = "0.4.19"
 # imagesize = "0.9.0"
 # rectangle-pack = "0.4.2"
 
