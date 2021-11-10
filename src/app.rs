@@ -73,16 +73,19 @@ impl P3App {
     fn hud(&mut self, ctx: &egui::CtxRef) {
         egui::Window::new("Settings")
             // .frame(egui::containers::Frame::default())
-            // .anchor(egui::Align2::CENTER_TOP, [0.0, 0.0])
-            .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
-            //.default_pos([0.0, 0.0])
+            .anchor(egui::Align2::CENTER_TOP, [0.0, 0.0])
+            // .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
+            .title_bar(false)
             .resizable(false)
-            // .collapsible(false)
+            .collapsible(false)
+            // .auto_sized()
             .show(ctx, |panel| {
                 panel.vertical(|ui| {
                     //RADIO - SET RATIO
-                    ui.horizontal_top(|ratio| {
-                        ratio.label("Ratio:");
+                    ui.horizontal(|ratio| {
+                        let tooltip_ratio =
+                            "Aspect ratio of packaging area. Updates package on change..";
+                        ratio.label("Ratio:").on_hover_text(tooltip_ratio);
                         if ratio
                             .selectable_value(&mut self.aspect, AspectRatio::Square, "Square")
                             .clicked()
@@ -115,8 +118,10 @@ impl P3App {
                         }
                     });
                     //RADIO - EXPORT SIZE
-                    ui.horizontal_top(|export_size| {
-                        export_size.label("Size:");
+                    ui.separator();
+                    ui.horizontal(|export_size| {
+                        let tooltip_size = "Maximum dimension of exported image..";
+                        export_size.label("Size:").on_hover_text(tooltip_size);
                         if export_size
                             .selectable_value(
                                 &mut self.export_scale,
@@ -165,9 +170,30 @@ impl P3App {
                         }
                     });
                     //BUTTON - SET PATH
-                    ui.horizontal_wrapped(|export_path| {
-                        export_path.label("Export path:");
-                        let button_path = export_path.button("Choose directory...");
+                    ui.separator();
+                    // ui.horizontal_wrapped(|export_path| {
+                    // });
+                    //BUTTON - EXPORT
+                    ui.horizontal(|buttons| {
+                        if buttons
+                            .button("Clear")
+                            .on_hover_text("Start from scratch..\nShortcut: [Escape]")
+                            .clicked()
+                        {
+                            self.clear(ctx);
+                        }
+                        if buttons
+                            .button("Undo")
+                            .on_hover_text("Remove last drop..\nShortcut: [Backspace]")
+                            .clicked()
+                        {
+                            self.undo(ctx);
+                        }
+                        buttons.separator();
+
+                        let button_path = buttons
+                            .button("Directory...")
+                            .on_hover_text("Where to place resulting image..");
                         if button_path.clicked() {
                             if let Some(path) = rfd::FileDialog::new()
                                 .set_directory(&self.export_path)
@@ -176,31 +202,42 @@ impl P3App {
                                 self.export_path = path;
                             }
                         }
-                    });
-                    //BUTTON - EXPORT
-                    ui.separator();
-                    ui.horizontal_wrapped(|apply| {
-                        let button_apply = apply.button("Apply");
 
-                        if button_apply.clicked() {
-                            self.packer.preview_size = self.preview_size;
-                            self.packer.export_size = self.export_size;
-                            self.to_update = true;
-                        }
+                        buttons.separator();
+                        if buttons
+                            .button("Export Result")
+                            .on_hover_text("Save result to file..\nShortcut: [Enter]")
+                            .clicked()
+                        {
+                            self.packer.export(&self.export_path);
+                        };
                     });
                 })
             });
-        egui::Area::new("Export")
-            // .frame(egui::containers::Frame::default())
-            // .anchor(egui::Align2::CENTER_TOP, [0.0, 0.0])
-            .anchor(egui::Align2::RIGHT_BOTTOM, [0.0, 0.0])
-            //.default_pos([0.0, 0.0])
-            // .collapsible(false)
-            .show(ctx, |panel| {
-                if panel.button("Export").clicked() {
-                    self.packer.export(&self.export_path);
-                };
-            });
+        if self.packer.items.is_empty() {
+            egui::Window::new("About")
+                // .frame(egui::containers::Frame::default())
+                // .anchor(egui::Align2::CENTER_TOP, [0.0, 0.0])
+                .anchor(egui::Align2::CENTER_BOTTOM, [0.0, 0.0])
+                .title_bar(false)
+                .resizable(false)
+                .collapsible(false)
+                //.default_pos([0.0, 0.0])
+                // .collapsible(false)
+                .show(ctx, |about| {
+                    about.vertical_centered(|ui| {
+                        // ui.add(
+                        //     egui::Hyperlink::new("https://github.com/emilk/egui")
+                        //         .text("My favorite repo"),
+                        // );
+                        ui.label(format!(
+                            "{} v{} by Roman Chumak",
+                            env!("CARGO_PKG_NAME"),
+                            env!("CARGO_PKG_VERSION"),
+                        ));
+                    });
+                });
+        }
     }
 
     fn fader(&mut self, ctx: &egui::CtxRef, text: &str) {
