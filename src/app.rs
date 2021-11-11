@@ -62,8 +62,9 @@ impl epi::App for P3App {
             &ImageScaling::Preview(self.settings.width),
             &self.packer.aspect,
         );
-        self.packer = Packer::new(self.settings.width);
-        println!("ON START: {:?}", self.settings.preview_size);
+        self.packer = Packer::new(self.settings.width, AspectRatio::Square);
+        self.packer.update(&[]);
+        self.to_update = true;
         // self.load(&mut storage);
     }
 
@@ -110,27 +111,57 @@ impl epi::App for P3App {
             .order(Order::Background)
             .show(ctx, |ui| {
                 if let Some((size, texture)) = self.texture {
-                    ui.image(texture, size);
+                    if ui
+                        .add(egui::Image::new(texture, size).sense(Sense::drag()))
+                        .dragged()
+                    {
+                        frame.drag_window();
+                    }
                 }
             });
 
+        let painter = ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("fader")));
+        let screen_rect = ctx.input().screen_rect();
+        painter.rect_stroke(screen_rect, 0.0, egui::Stroke::new(2.0, Color32::GRAY));
+        if self.packer.items.is_empty() {
+            painter.text(
+                Pos2::new(screen_rect.max.x / 2.0, screen_rect.max.y / 2.0),
+                Align2::CENTER_CENTER,
+                "DROP HERE",
+                TextStyle::Heading,
+                Color32::DARK_GRAY,
+            );
+        }
         //Draw GUI if mouse hovered window
         if self.packer.items.is_empty() || ctx.input().pointer.has_pointer() {
-            self.hud(ctx);
+            //     egui::Area::new("EXIT")
+            //         .order(Order::Foreground)
+            //         .anchor(egui::Align2::RIGHT_TOP, [0.0, 0.0])
+            //         .show(ctx, |ui| {
+            //             if ui
+            //                 .add(
+            //                     egui::Button::new("X")
+            //                         .fill(egui::Color32::DEBUG_COLOR)
+            //                         .sense(Sense::click()),
+            //                 )
+            //                 .clicked()
+            //             {
+            //                 frame.quit();
+            //             }
+            //         });
+            self.hud(ctx, frame);
         }
 
         self.detect_files_being_dropped(ctx);
-        self.handle_keys(ctx);
+        self.handle_keys(ctx, frame);
     }
 }
 
 impl P3App {
     //GUI reaction
-    fn hud(&mut self, ctx: &egui::CtxRef) {
+    fn hud(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
         egui::Window::new("Settings")
-            // .frame(egui::containers::Frame::default())
             .anchor(egui::Align2::CENTER_TOP, [0.0, 0.0])
-            // .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
             .title_bar(false)
             .resizable(false)
             .collapsible(false)
@@ -189,6 +220,16 @@ impl P3App {
                             self.to_update = true;
                             println!("{:?}", self.packer.aspect);
                         }
+
+                        if ratio
+                            .add(egui::SelectableLabel::new(
+                                self.packer.aspect == AspectRatio::Zero,
+                                "0 : 0",
+                            ))
+                            .clicked()
+                        {
+                            frame.quit();
+                        }
                     });
                     //RADIO - EXPORT SIZE
                     ui.separator();
@@ -242,11 +283,8 @@ impl P3App {
                             println!("{:?}", self.packer.scale);
                         }
                     });
-                    //BUTTON - SET PATH
                     ui.separator();
-                    // ui.horizontal_wrapped(|export_path| {
-                    // });
-                    //BUTTON - EXPORT
+                    //BUTTONS - EXPORT
                     ui.horizontal(|buttons| {
                         if buttons
                             .button("Clear")
@@ -292,29 +330,36 @@ impl P3App {
                     });
                 })
             });
-        // if self.packer.items.is_empty() {
-        egui::Window::new("About")
-            // .frame(egui::containers::Frame::default())
-            // .anchor(egui::Align2::CENTER_TOP, [0.0, 0.0])
-            .anchor(egui::Align2::CENTER_BOTTOM, [0.0, 0.0])
-            .title_bar(false)
-            .resizable(false)
-            .collapsible(false)
-            //.default_pos([0.0, 0.0])
-            // .collapsible(false)
-            .show(ctx, |about| {
-                about.vertical_centered(|ui| {
-                    // ui.add(
-                    //     egui::Hyperlink::new("https://github.com/emilk/egui")
-                    //         .text("My favorite repo"),
-                    // );
-                    ui.label(format!(
-                        "PickPicPack v{} by Roman Chumak",
-                        env!("CARGO_PKG_VERSION"),
-                    ));
+
+        // egui::Window::new("Drag")
+        //     .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        //     // .frame(egui::containers::Frame::default())
+        //     .title_bar(false)
+        //     .resizable(false)
+        //     .collapsible(false)
+        //     .show(ctx, |dragger| {
+        //         dragger.
+        //     });
+        if self.packer.items.is_empty() {
+            egui::Window::new("About")
+                .anchor(egui::Align2::CENTER_BOTTOM, [0.0, 0.0])
+                // .frame(egui::containers::Frame::default())
+                .title_bar(false)
+                .resizable(false)
+                .collapsible(false)
+                .show(ctx, |about| {
+                    about.vertical_centered(|ui| {
+                        // ui.add(
+                        //     egui::Hyperlink::new("https://github.com/emilk/egui")
+                        //         .text("My favorite repo"),
+                        // );
+                        ui.label(format!(
+                            "PickPicPack v{} by Roman Chumak",
+                            env!("CARGO_PKG_VERSION"),
+                        ));
+                    });
                 });
-            });
-        // }
+        }
     }
 
     fn fader(&mut self, ctx: &egui::CtxRef, text: &str) {
@@ -347,7 +392,7 @@ impl P3App {
     fn update_packer(&mut self, files: &[DroppedFile]) {
         self.packer.update(files);
     }
-    fn handle_keys(&mut self, ctx: &egui::CtxRef) {
+    fn handle_keys(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
         for event in &ctx.input().raw.events {
             match event {
                 Event::Key {
@@ -361,7 +406,11 @@ impl P3App {
                     pressed: true,
                     ..
                 } => self.clear(ctx),
-
+                Event::PointerButton {
+                    button: PointerButton::Secondary,
+                    pressed: true,
+                    ..
+                } => frame.drag_window(),
                 _ => (),
             }
         }
@@ -370,13 +419,16 @@ impl P3App {
     // Key Functions
     fn clear(&mut self, ctx: &egui::CtxRef) {
         self.fader(ctx, "clear");
-        self.packer.items = vec![];
-        self.packer.update(&[]);
+        self.packer = Packer::new(self.settings.width, self.packer.aspect);
         self.to_update = true;
     }
     fn undo(&mut self, ctx: &egui::CtxRef) {
         self.fader(ctx, "undo");
-        self.packer.undo();
+        if self.packer.items.len() <= 1 {
+            self.clear(ctx);
+        } else {
+            self.packer.undo();
+        }
         self.to_update = true;
     }
 }

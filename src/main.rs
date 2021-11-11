@@ -20,6 +20,7 @@ fn main() {
     let start_state = P3App::default();
     let options = eframe::NativeOptions {
         always_on_top: true,
+        decorated: false,
         resizable: true,
         initial_window_size: Some(egui::Vec2 { x: side, y: side }),
         drag_and_drop_support: true,

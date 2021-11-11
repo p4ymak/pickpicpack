@@ -51,7 +51,7 @@ pub fn size_by_side_and_ratio(side: &ImageScaling, aspect: &AspectRatio) -> Rect
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum AspectRatio {
     Square,
     Screen,
@@ -59,6 +59,7 @@ pub enum AspectRatio {
     ThreeFour,
     SixteenNine,
     NineSixteen,
+    Zero,
 }
 impl Default for AspectRatio {
     fn default() -> AspectRatio {
@@ -77,6 +78,7 @@ impl AspectRatio {
             AspectRatio::ThreeFour => 4.0 / 3.0,
             AspectRatio::SixteenNine => 9.0 / 16.0,
             AspectRatio::NineSixteen => 16.0 / 9.0,
+            _ => 0.0,
         }
     }
 }
