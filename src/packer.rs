@@ -21,8 +21,6 @@ enum CombineTask {
 
 pub struct Packer {
     pub items: Vec<Vec<Item<Pic>>>,
-    // pub preview_size: RectSize,
-    // pub export_size: RectSize,
     pub preview_width: f32,
     pub aspect: AspectRatio,
     pub scale: ImageScaling,
@@ -33,8 +31,6 @@ impl Default for Packer {
     fn default() -> Self {
         Packer {
             items: Vec::<Vec<Item<Pic>>>::new(),
-            // preview_size: RectSize::default(),
-            // export_size: RectSize::default(),
             preview_width: f32::default(),
             aspect: AspectRatio::Square,
             scale: ImageScaling::default(),
@@ -57,9 +53,6 @@ impl Packer {
             let new_pics = load_new_items(dropped_items);
             self.add_items(new_pics);
         }
-        // let side = (self.area_min as f32).sqrt() as u32;
-        // self.preview_size =
-        //     size_by_side_and_ratio(&ImageScaling::Preview(self.preview_width), &self.aspect);
         self.pack();
         self.preview();
     }
@@ -69,10 +62,6 @@ impl Packer {
             self.items.pop();
             self.update(&[]);
         }
-        // if self.items.len() <= 1 {
-        //     self.pic_placement = Err(());
-        //     self.preview = None;
-        // }
     }
 
     fn add_items(&mut self, new_items: Vec<Item<Pic>>) {
@@ -82,18 +71,11 @@ impl Packer {
 
         self.items.push(new_items);
     }
-    // fn heuristic(&self) -> f32 {
-    //     let mut perimeter = 0;
-    //     for v in
-    // }
 
     fn pack(&mut self) {
         if !self.items.is_empty() {
             let items_flat: Vec<Item<Pic>> = self.items.clone().into_iter().flatten().collect();
             let width = (items_flat.iter().map(|r| r.w * r.h).sum::<usize>() as f32).sqrt();
-            // println!("HEURISTIC: {}", perimeter);
-            // let width = (perimeter as f32).sqrt() * self.aspect.div();
-            // let width = self.heuristic();
             self.pic_placement = pack_to_ratio(&items_flat, self.aspect.div(), width);
         }
     }
@@ -113,9 +95,6 @@ impl Packer {
             let crop = (max_w as f32)
                 .max(max_h as f32 / self.aspect.div())
                 .min(packed.0 as f32);
-            // let size = RectSize::new(max_w, (max_w as f32 * self.aspect.div()) as usize);
-
-            // let div = image_size.w as f32 / packed.0 as f32;
             let div = image_size.w as f32 / crop;
             let mut combined = RgbaImage::new(image_size.w as u32, image_size.h as u32);
             for item in &packed.2 {
@@ -123,19 +102,21 @@ impl Packer {
                     let thumbnail = match is_preview {
                         true => thumbnail(
                             &image,
-                            (item.1.width as f32 * div) as u32,
-                            (item.1.height as f32 * div) as u32,
+                            (item.1.width as f32 * div).ceil() as u32,
+                            (item.1.height as f32 * div).ceil() as u32,
                         ),
                         false => resize(
                             &image,
-                            (item.1.width as f32 * div) as u32,
-                            (item.1.height as f32 * div) as u32,
+                            (item.1.width as f32 * div).ceil() as u32,
+                            (item.1.height as f32 * div).ceil() as u32,
                             FilterType::CatmullRom,
                         ),
                     };
                     let loc = item.0;
-                    let (dx, dy) = ((loc.x as f32 * div) as u32, (loc.y as f32 * div) as u32);
-                    // println!("{:?} - {} {}", pic.id, loc.x(), loc.y());
+                    let (dx, dy) = (
+                        (loc.x as f32 * div).ceil() as u32,
+                        (loc.y as f32 * div).ceil() as u32,
+                    );
                     replace(&mut combined, &thumbnail, dx, dy);
                 }
             }
@@ -144,7 +125,6 @@ impl Packer {
         None
     }
     fn preview(&mut self) {
-        // self.preview = None;
         let size = size_by_side_and_ratio(&ImageScaling::Preview(self.preview_width), &self.aspect);
         if let Some(combined) = self.combine_image(CombineTask::Preview(size)) {
             self.preview = Some(Preview {
@@ -163,6 +143,7 @@ impl Packer {
     }
     pub fn export(&mut self, path: &Path) {
         let size = size_by_side_and_ratio(&self.scale, &self.aspect);
+
         if let Some(combined) = self.combine_image(CombineTask::Export(size)) {
             let result = combined.save(export_file_path(path, "png"));
             match result {
@@ -179,7 +160,7 @@ fn pack_to_ratio(
     width: f32,
 ) -> Result<(usize, usize, PackedItems<Pic>), ()> {
     let height = width * ratio;
-    println!("TRY pack to {}:{}", width, height);
+    // println!("TRY pack to {}:{}", width, height);
     let rect = Rect::of_size(width as usize, height as usize);
     let packed = pack(rect, items.to_owned());
     if let Ok(packed_items) = packed {

@@ -22,11 +22,11 @@ fn main() {
         always_on_top: true,
         decorated: false,
         resizable: true,
+        maximized: false,
         initial_window_size: Some(egui::Vec2 { x: side, y: side }),
         drag_and_drop_support: true,
         transparent: true,
         icon_data: Some(icon),
-        ..Default::default()
     };
     eframe::run_native(Box::new(start_state), options);
 }

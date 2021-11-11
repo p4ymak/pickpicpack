@@ -8,30 +8,24 @@ use std::path::PathBuf;
 #[derive(Debug)]
 struct Settings {
     width: f32,
-    // aspect: AspectRatio,
     export_scale: ImageScaling,
     preview_size: RectSize,
-    // export_size: RectSize,
-    // ratio: f32,
     zip: bool,
 }
 impl Default for Settings {
     fn default() -> Settings {
         Settings {
             width: window_width(WINDOW_SCALE),
-            // aspect: AspectRatio::default(),
             export_scale: ImageScaling::default(),
             preview_size: RectSize::default(),
-            // export_size: RectSize::default(),
-            // ratio: 1.0,
             zip: false,
         }
     }
 }
 
 #[derive(Default)]
-// #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
-// #[cfg_attr(feature = "persistence", serde(default))] // if we add new fields, give them default values when deserializing old state
+#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "persistence", serde(default))] // if we add new fields, give them default values when deserializing old state
 pub struct P3App {
     settings: Settings,
     packer: Packer,
@@ -48,34 +42,37 @@ impl epi::App for P3App {
         true
     }
 
-    // #[cfg(feature = "persistence")]
     fn setup(
         &mut self,
         _ctx: &egui::CtxRef,
         _frame: &mut epi::Frame<'_>,
         _storage: Option<&dyn Storage>,
     ) {
-        // self.settings.preview_size = RectSize::new(512, 512);
-        // self.settings.export_size = RectSize::new(512, 512);
-
+        self.packer = Packer::new(self.settings.width, AspectRatio::Square);
+        #[cfg(feature = "persistence")]
+        self.load(&mut storage);
         self.settings.preview_size = size_by_side_and_ratio(
             &ImageScaling::Preview(self.settings.width),
             &self.packer.aspect,
         );
-        self.packer = Packer::new(self.settings.width, AspectRatio::Square);
         self.packer.update(&[]);
         self.to_update = true;
-        // self.load(&mut storage);
     }
 
     #[cfg(feature = "persistence")]
     fn load(&mut self, storage: &dyn epi::Storage) {
-        *self = epi::get_value(storage, epi::APP_KEY).unwrap_or_default()
+        // self.settings = epi::get_value(storage, "settings").unwrap_or_default();
+        *self.settings.export_scale = epi::set_value(storage, "PPP_scale").unwrap_or_default();
+        *self.packer.aspect = epi::set_value(storage, "PPP_ratio").unwrap_or_default();
+        *self.settings.zip = epi::set_value(storage, "PPP_zip").unwrap_or_default();
+        println!("loaded!");
     }
 
     #[cfg(feature = "persistence")]
     fn save(&mut self, storage: &mut dyn epi::Storage) {
-        epi::set_value(storage, epi::APP_KEY, self);
+        epi::set_value(storage, "PPP_scale", &self.settings.export_scale);
+        epi::set_value(storage, "PPP_ratio", &self.packer.aspect);
+        epi::set_value(storage, "PPP_zip", &self.settings.zip);
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
@@ -134,6 +131,7 @@ impl epi::App for P3App {
         }
         //Draw GUI if mouse hovered window
         if self.packer.items.is_empty() || ctx.input().pointer.has_pointer() {
+            self.hud(ctx, frame);
             //     egui::Area::new("EXIT")
             //         .order(Order::Foreground)
             //         .anchor(egui::Align2::RIGHT_TOP, [0.0, 0.0])
@@ -149,11 +147,10 @@ impl epi::App for P3App {
             //                 frame.quit();
             //             }
             //         });
-            self.hud(ctx, frame);
         }
 
         self.detect_files_being_dropped(ctx);
-        self.handle_keys(ctx, frame);
+        self.handle_keys(ctx);
     }
 }
 
@@ -218,7 +215,6 @@ impl P3App {
                         {
                             self.update_packer(&[]);
                             self.to_update = true;
-                            println!("{:?}", self.packer.aspect);
                         }
 
                         if ratio
@@ -228,6 +224,8 @@ impl P3App {
                             ))
                             .clicked()
                         {
+                            #[cfg(feature = "persistence")]
+                            self.save();
                             frame.quit();
                         }
                     });
@@ -280,7 +278,7 @@ impl P3App {
                                 .clicked()
                         {
                             // self.to_update = true;
-                            println!("{:?}", self.packer.scale);
+                            // println!("{:?}", self.packer.scale);
                         }
                     });
                     ui.separator();
@@ -331,15 +329,6 @@ impl P3App {
                 })
             });
 
-        // egui::Window::new("Drag")
-        //     .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
-        //     // .frame(egui::containers::Frame::default())
-        //     .title_bar(false)
-        //     .resizable(false)
-        //     .collapsible(false)
-        //     .show(ctx, |dragger| {
-        //         dragger.
-        //     });
         if self.packer.items.is_empty() {
             egui::Window::new("About")
                 .anchor(egui::Align2::CENTER_BOTTOM, [0.0, 0.0])
@@ -392,7 +381,7 @@ impl P3App {
     fn update_packer(&mut self, files: &[DroppedFile]) {
         self.packer.update(files);
     }
-    fn handle_keys(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
+    fn handle_keys(&mut self, ctx: &egui::CtxRef) {
         for event in &ctx.input().raw.events {
             match event {
                 Event::Key {
@@ -406,11 +395,6 @@ impl P3App {
                     pressed: true,
                     ..
                 } => self.clear(ctx),
-                Event::PointerButton {
-                    button: PointerButton::Secondary,
-                    pressed: true,
-                    ..
-                } => frame.drag_window(),
                 _ => (),
             }
         }

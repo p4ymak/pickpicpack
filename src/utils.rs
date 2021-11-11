@@ -34,10 +34,7 @@ pub fn size_by_side_and_ratio(side: &ImageScaling, aspect: &AspectRatio) -> Rect
     let k = 1024.0;
     let side = match side {
         ImageScaling::Preview(w) => *w,
-        ImageScaling::FitScreen => {
-            let screen = get_screen_size();
-            screen.h as f32 / screen.w as f32
-        }
+        ImageScaling::FitScreen => get_screen_size().w as f32,
         ImageScaling::HalfK => k / 2.0,
         ImageScaling::OneK => k,
         ImageScaling::TwoK => k * 2.0,
