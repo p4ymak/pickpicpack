@@ -3,18 +3,6 @@
 version = 3
 
 [[package]]
-name = "PickPicPack"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "crunch",
- "eframe",
- "image",
- "rfd",
- "winit",
-]
-
-[[package]]
 name = "ab_glyph"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -927,6 +915,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "imagesize"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00b3b62f4e783e38afa07b51eaaa789be2fba03dbe29a05a1a906eb64feb987d"
+
+[[package]]
 name = "instant"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1412,6 +1406,19 @@ name = "percent-encoding"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
+
+[[package]]
+name = "pickpicpack"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "crunch",
+ "eframe",
+ "image",
+ "imagesize",
+ "rfd",
+ "winit",
+]
 
 [[package]]
 name = "pkg-config"

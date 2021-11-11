@@ -5,13 +5,35 @@ use egui::*;
 use epi::Storage;
 use std::path::PathBuf;
 
-#[derive(Default)]
-pub struct P3App {
-    aspect: AspectRatio,
+#[derive(Debug)]
+struct Settings {
+    width: f32,
+    // aspect: AspectRatio,
     export_scale: ImageScaling,
     preview_size: RectSize,
-    export_size: RectSize,
-    ratio: f32,
+    // export_size: RectSize,
+    // ratio: f32,
+    zip: bool,
+}
+impl Default for Settings {
+    fn default() -> Settings {
+        Settings {
+            width: window_width(WINDOW_SCALE),
+            // aspect: AspectRatio::default(),
+            export_scale: ImageScaling::default(),
+            preview_size: RectSize::default(),
+            // export_size: RectSize::default(),
+            // ratio: 1.0,
+            zip: false,
+        }
+    }
+}
+
+#[derive(Default)]
+// #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
+// #[cfg_attr(feature = "persistence", serde(default))] // if we add new fields, give them default values when deserializing old state
+pub struct P3App {
+    settings: Settings,
     packer: Packer,
     texture: Option<(egui::Vec2, egui::TextureId)>,
     to_update: bool,
@@ -22,17 +44,39 @@ impl epi::App for P3App {
     fn name(&self) -> &str {
         OUTPUT_NAME
     }
+    fn warm_up_enabled(&self) -> bool {
+        true
+    }
 
+    // #[cfg(feature = "persistence")]
     fn setup(
         &mut self,
-        ctx: &egui::CtxRef,
-        frame: &mut epi::Frame<'_>,
+        _ctx: &egui::CtxRef,
+        _frame: &mut epi::Frame<'_>,
         _storage: Option<&dyn Storage>,
     ) {
-        // self.packer.side = frame.margin.x;
-        self.preview_size = RectSize::new(512, 512);
-        self.export_size = RectSize::new(512, 512);
+        // self.settings.preview_size = RectSize::new(512, 512);
+        // self.settings.export_size = RectSize::new(512, 512);
+
+        self.settings.preview_size = size_by_side_and_ratio(
+            &ImageScaling::Preview(self.settings.width),
+            &self.packer.aspect,
+        );
+        self.packer = Packer::new(self.settings.width);
+        println!("ON START: {:?}", self.settings.preview_size);
+        // self.load(&mut storage);
     }
+
+    #[cfg(feature = "persistence")]
+    fn load(&mut self, storage: &dyn epi::Storage) {
+        *self = epi::get_value(storage, epi::APP_KEY).unwrap_or_default()
+    }
+
+    #[cfg(feature = "persistence")]
+    fn save(&mut self, storage: &mut dyn epi::Storage) {
+        epi::set_value(storage, epi::APP_KEY, self);
+    }
+
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
         if self.to_update {
             if let Some(texture) = self.texture {
@@ -46,6 +90,18 @@ impl epi::App for P3App {
                 let size = egui::Vec2::new(preview.size.w as f32, preview.size.h as f32);
                 self.texture = Some((size, texture));
             }
+
+            self.settings.preview_size = size_by_side_and_ratio(
+                &ImageScaling::Preview(self.settings.width),
+                &self.packer.aspect,
+            );
+            let size = egui::Vec2::new(
+                self.settings.preview_size.w as f32,
+                self.settings.preview_size.h as f32,
+            );
+            // self.resizable(false);
+            frame.set_window_size(size);
+
             self.to_update = false;
         }
 
@@ -87,34 +143,51 @@ impl P3App {
                             "Aspect ratio of packaging area. Updates package on change..";
                         ratio.label("Ratio:").on_hover_text(tooltip_ratio);
                         if ratio
-                            .selectable_value(&mut self.aspect, AspectRatio::Square, "Square")
+                            .selectable_value(
+                                &mut self.packer.aspect,
+                                AspectRatio::Square,
+                                "Square",
+                            )
                             .clicked()
                             || ratio
-                                .selectable_value(&mut self.aspect, AspectRatio::Screen, "Screen")
-                                .clicked()
-                            || ratio
-                                .selectable_value(&mut self.aspect, AspectRatio::FourThree, "4 : 3")
-                                .clicked()
-                            || ratio
-                                .selectable_value(&mut self.aspect, AspectRatio::ThreeFour, "3 : 4")
+                                .selectable_value(
+                                    &mut self.packer.aspect,
+                                    AspectRatio::Screen,
+                                    "Screen",
+                                )
                                 .clicked()
                             || ratio
                                 .selectable_value(
-                                    &mut self.aspect,
+                                    &mut self.packer.aspect,
+                                    AspectRatio::FourThree,
+                                    "4 : 3",
+                                )
+                                .clicked()
+                            || ratio
+                                .selectable_value(
+                                    &mut self.packer.aspect,
+                                    AspectRatio::ThreeFour,
+                                    "3 : 4",
+                                )
+                                .clicked()
+                            || ratio
+                                .selectable_value(
+                                    &mut self.packer.aspect,
                                     AspectRatio::SixteenNine,
                                     "16 : 9",
                                 )
                                 .clicked()
                             || ratio
                                 .selectable_value(
-                                    &mut self.aspect,
+                                    &mut self.packer.aspect,
                                     AspectRatio::NineSixteen,
                                     "9 : 16",
                                 )
                                 .clicked()
                         {
-                            // self.to_update = true;
-                            println!("{:?}", self.aspect);
+                            self.update_packer(&[]);
+                            self.to_update = true;
+                            println!("{:?}", self.packer.aspect);
                         }
                     });
                     //RADIO - EXPORT SIZE
@@ -124,49 +197,49 @@ impl P3App {
                         export_size.label("Size:").on_hover_text(tooltip_size);
                         if export_size
                             .selectable_value(
-                                &mut self.export_scale,
+                                &mut self.packer.scale,
                                 ImageScaling::FitScreen,
                                 "Fit Screen",
                             )
                             .clicked()
                             || export_size
                                 .selectable_value(
-                                    &mut self.export_scale,
+                                    &mut self.packer.scale,
                                     ImageScaling::HalfK,
                                     "512",
                                 )
                                 .clicked()
                             || export_size
                                 .selectable_value(
-                                    &mut self.export_scale,
+                                    &mut self.packer.scale,
                                     ImageScaling::OneK,
                                     "1024",
                                 )
                                 .clicked()
                             || export_size
                                 .selectable_value(
-                                    &mut self.export_scale,
+                                    &mut self.packer.scale,
                                     ImageScaling::TwoK,
                                     "2048",
                                 )
                                 .clicked()
                             || export_size
                                 .selectable_value(
-                                    &mut self.export_scale,
+                                    &mut self.packer.scale,
                                     ImageScaling::FourK,
                                     "4096",
                                 )
                                 .clicked()
                             || export_size
                                 .selectable_value(
-                                    &mut self.export_scale,
+                                    &mut self.packer.scale,
                                     ImageScaling::Actual,
                                     "Actual",
                                 )
                                 .clicked()
                         {
                             // self.to_update = true;
-                            println!("{:?}", self.export_scale);
+                            println!("{:?}", self.packer.scale);
                         }
                     });
                     //BUTTON - SET PATH
@@ -189,8 +262,8 @@ impl P3App {
                         {
                             self.undo(ctx);
                         }
-                        buttons.separator();
 
+                        buttons.separator();
                         let button_path = buttons
                             .button("Directory...")
                             .on_hover_text("Where to place resulting image..");
@@ -204,6 +277,11 @@ impl P3App {
                         }
 
                         buttons.separator();
+                        buttons
+                            .checkbox(&mut self.settings.zip, "ZIP")
+                            .on_hover_text("Also pack all source images to archive.");
+
+                        buttons.separator();
                         if buttons
                             .button("Export Result")
                             .on_hover_text("Save result to file..\nShortcut: [Enter]")
@@ -214,30 +292,29 @@ impl P3App {
                     });
                 })
             });
-        if self.packer.items.is_empty() {
-            egui::Window::new("About")
-                // .frame(egui::containers::Frame::default())
-                // .anchor(egui::Align2::CENTER_TOP, [0.0, 0.0])
-                .anchor(egui::Align2::CENTER_BOTTOM, [0.0, 0.0])
-                .title_bar(false)
-                .resizable(false)
-                .collapsible(false)
-                //.default_pos([0.0, 0.0])
-                // .collapsible(false)
-                .show(ctx, |about| {
-                    about.vertical_centered(|ui| {
-                        // ui.add(
-                        //     egui::Hyperlink::new("https://github.com/emilk/egui")
-                        //         .text("My favorite repo"),
-                        // );
-                        ui.label(format!(
-                            "{} v{} by Roman Chumak",
-                            env!("CARGO_PKG_NAME"),
-                            env!("CARGO_PKG_VERSION"),
-                        ));
-                    });
+        // if self.packer.items.is_empty() {
+        egui::Window::new("About")
+            // .frame(egui::containers::Frame::default())
+            // .anchor(egui::Align2::CENTER_TOP, [0.0, 0.0])
+            .anchor(egui::Align2::CENTER_BOTTOM, [0.0, 0.0])
+            .title_bar(false)
+            .resizable(false)
+            .collapsible(false)
+            //.default_pos([0.0, 0.0])
+            // .collapsible(false)
+            .show(ctx, |about| {
+                about.vertical_centered(|ui| {
+                    // ui.add(
+                    //     egui::Hyperlink::new("https://github.com/emilk/egui")
+                    //         .text("My favorite repo"),
+                    // );
+                    ui.label(format!(
+                        "PickPicPack v{} by Roman Chumak",
+                        env!("CARGO_PKG_VERSION"),
+                    ));
                 });
-        }
+            });
+        // }
     }
 
     fn fader(&mut self, ctx: &egui::CtxRef, text: &str) {
@@ -263,12 +340,13 @@ impl P3App {
         if !ctx.input().raw.dropped_files.is_empty() {
             self.fader(ctx, "packing");
 
-            self.packer
-                .update(&ctx.input().raw.dropped_files, self.preview_size);
+            self.update_packer(&ctx.input().raw.dropped_files);
             self.to_update = true;
         }
     }
-
+    fn update_packer(&mut self, files: &[DroppedFile]) {
+        self.packer.update(files);
+    }
     fn handle_keys(&mut self, ctx: &egui::CtxRef) {
         for event in &ctx.input().raw.events {
             match event {
@@ -292,7 +370,8 @@ impl P3App {
     // Key Functions
     fn clear(&mut self, ctx: &egui::CtxRef) {
         self.fader(ctx, "clear");
-        self.packer = Packer::new(self.preview_size, self.export_size, self.ratio);
+        self.packer.items = vec![];
+        self.packer.update(&[]);
         self.to_update = true;
     }
     fn undo(&mut self, ctx: &egui::CtxRef) {

@@ -1,7 +1,7 @@
-use eframe::egui::DroppedFile;
-use image::GenericImageView;
-// use imagesize::size;
 use crunch::{Item, Rotation};
+use eframe::egui::DroppedFile;
+// use image::GenericImageView;
+use imagesize::size;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -38,15 +38,15 @@ pub fn load_new_items(dropped_items: &[DroppedFile]) -> Vec<Item<Pic>> {
         }
     }
     for file in all_files {
-        if let Ok(image) = image::open(&file) {
+        if let Ok(dimensions) = size(&file) {
             new_items.push(Item::new(
                 Pic {
                     file: file.to_owned(),
-                    width: image.width(),
-                    height: image.height(),
+                    width: dimensions.width as u32,
+                    height: dimensions.height as u32,
                 },
-                image.width() as usize,
-                image.height() as usize,
+                dimensions.width,
+                dimensions.height,
                 Rotation::None,
             ));
         }

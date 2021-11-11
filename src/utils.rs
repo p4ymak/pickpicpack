@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use winit::event_loop::EventLoop;
 
 pub const OUTPUT_NAME: &str = "PickPicPack";
+pub const WINDOW_SCALE: f32 = 2.0;
 
 pub fn window_width(div: f32) -> f32 {
     if let Some(monitor) = EventLoop::new().primary_monitor() {
@@ -27,6 +28,29 @@ pub fn export_file_path(path: &Path, ext: &str) -> PathBuf {
     Path::new(path).join(format!("{}_{}.{}", OUTPUT_NAME, time_stamp, ext))
 }
 
+pub fn size_by_side_and_ratio(side: &ImageScaling, aspect: &AspectRatio) -> RectSize {
+    let ratio = aspect.div();
+
+    let k = 1024.0;
+    let side = match side {
+        ImageScaling::Preview(w) => *w,
+        ImageScaling::FitScreen => {
+            let screen = get_screen_size();
+            screen.h as f32 / screen.w as f32
+        }
+        ImageScaling::HalfK => k / 2.0,
+        ImageScaling::OneK => k,
+        ImageScaling::TwoK => k * 2.0,
+        ImageScaling::FourK => k * 4.0,
+        _ => 0.0,
+    };
+    if ratio > 1.0 {
+        RectSize::new(side as usize, (side * ratio) as usize)
+    } else {
+        RectSize::new((side / ratio) as usize, side as usize)
+    }
+}
+
 #[derive(PartialEq, Debug)]
 pub enum AspectRatio {
     Square,
@@ -41,9 +65,25 @@ impl Default for AspectRatio {
         AspectRatio::Square
     }
 }
+impl AspectRatio {
+    pub fn div(&self) -> f32 {
+        match self {
+            AspectRatio::Square => 1.0,
+            AspectRatio::Screen => {
+                let screen = get_screen_size();
+                screen.h as f32 / screen.w as f32
+            }
+            AspectRatio::FourThree => 3.0 / 4.0,
+            AspectRatio::ThreeFour => 4.0 / 3.0,
+            AspectRatio::SixteenNine => 9.0 / 16.0,
+            AspectRatio::NineSixteen => 16.0 / 9.0,
+        }
+    }
+}
 
 #[derive(PartialEq, Debug)]
 pub enum ImageScaling {
+    Preview(f32),
     FitScreen,
     HalfK,
     OneK,

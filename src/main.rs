@@ -4,7 +4,8 @@ mod packer;
 mod utils;
 use app::*;
 use eframe::egui;
-use utils::window_width;
+use utils::{window_width, WINDOW_SCALE};
+
 fn main() {
     let icon = eframe::epi::IconData {
         rgba: image::open("/home/p4ymak/Work/00_P4/Rust/PickPicPack/icon/icon/PickPicPack.png")
@@ -15,11 +16,11 @@ fn main() {
         width: 512,
         height: 512,
     };
-    let side = window_width(2.0);
+    let side = window_width(WINDOW_SCALE);
     let start_state = P3App::default();
     let options = eframe::NativeOptions {
         always_on_top: true,
-        resizable: false,
+        resizable: true,
         initial_window_size: Some(egui::Vec2 { x: side, y: side }),
         drag_and_drop_support: true,
         transparent: true,
