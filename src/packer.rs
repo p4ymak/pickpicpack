@@ -6,8 +6,6 @@ use image::imageops::{replace, resize, thumbnail, FilterType};
 use image::RgbaImage;
 use std::path::Path;
 
-const SCALE_MULTIPLIER: f32 = 1.1; //std::f32::consts::E / 2.0;
-
 #[derive(Debug)]
 pub struct Preview {
     pub size: RectSize,
@@ -75,8 +73,10 @@ impl Packer {
     fn pack(&mut self) {
         if !self.items.is_empty() {
             let items_flat: Vec<Item<Pic>> = self.items.clone().into_iter().flatten().collect();
-            let width = (items_flat.iter().map(|r| r.w * r.h).sum::<usize>() as f32).sqrt();
-            self.pic_placement = pack_to_ratio(&items_flat, self.aspect.div(), width);
+            let width = (items_flat.iter().map(|r| r.w * r.h).sum::<usize>() as f32
+                / self.aspect.div())
+            .sqrt();
+            self.pic_placement = pack_to_ratio(&items_flat, self.aspect.div(), width, width, 1);
         }
     }
 
@@ -166,14 +166,22 @@ fn pack_to_ratio(
     items: &[Item<Pic>],
     ratio: f32,
     width: f32,
+    original_width: f32,
+    step: usize,
 ) -> Result<(usize, usize, PackedItems<Pic>), ()> {
     let height = width * ratio;
-    // println!("TRY pack to {}:{}", width, height);
+    println!("{} TRY pack to {}:{}", step, width, height);
     let rect = Rect::of_size(width as usize, height as usize);
     let packed = pack(rect, items.to_owned());
     if let Ok(packed_items) = packed {
         Ok((width as usize, height as usize, packed_items))
     } else {
-        pack_to_ratio(items, ratio, width * SCALE_MULTIPLIER)
+        pack_to_ratio(
+            items,
+            ratio,
+            original_width + original_width * step as f32 * 0.01, // add 1% per step
+            original_width,
+            step + 1,
+        )
     }
 }

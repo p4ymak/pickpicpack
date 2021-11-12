@@ -1,5 +1,6 @@
 use super::packer::*;
 use super::utils::*;
+use core::time::Duration;
 use eframe::{egui, epi};
 use egui::*;
 use epi::Storage;
@@ -45,6 +46,9 @@ impl epi::App for P3App {
     }
     fn persist_egui_memory(&self) -> bool {
         false
+    }
+    fn auto_save_interval(&self) -> Duration {
+        Duration::MAX
     }
     fn setup(
         &mut self,
@@ -321,7 +325,8 @@ impl P3App {
                         //         .text("My favorite repo"),
                         // );
                         ui.label(format!(
-                            "PickPicPack v{} by Roman Chumak",
+                            "{} v{} by Roman Chumak",
+                            env!("CARGO_PKG_NAME"),
                             env!("CARGO_PKG_VERSION"),
                         ));
                     });
