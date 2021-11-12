@@ -10,6 +10,7 @@ struct Settings {
     width: f32,
     preview_size: RectSize,
     zip: bool,
+    export_path: PathBuf,
 }
 impl Default for Settings {
     fn default() -> Settings {
@@ -17,6 +18,7 @@ impl Default for Settings {
             width: window_width(WINDOW_SCALE),
             preview_size: RectSize::default(),
             zip: false,
+            export_path: PathBuf::default(),
         }
     }
 }
@@ -29,7 +31,6 @@ pub struct P3App {
     packer: Packer,
     texture: Option<(egui::Vec2, egui::TextureId)>,
     to_update: bool,
-    export_path: PathBuf,
 }
 
 impl epi::App for P3App {
@@ -59,6 +60,7 @@ impl epi::App for P3App {
     fn save(&mut self, storage: &mut dyn epi::Storage) {
         epi::set_value(storage, "PPP_scale", &self.packer.scale);
         epi::set_value(storage, "PPP_ratio", &self.packer.aspect);
+        epi::set_value(storage, "PPP_export_path", &self.settings.export_path);
         epi::set_value(storage, "PPP_zip", &self.settings.zip);
     }
 
@@ -276,10 +278,10 @@ impl P3App {
                             .on_hover_text("Where to place resulting image..");
                         if button_path.clicked() {
                             if let Some(path) = rfd::FileDialog::new()
-                                .set_directory(&self.export_path)
+                                .set_directory(&self.settings.export_path)
                                 .pick_folder()
                             {
-                                self.export_path = path;
+                                self.settings.export_path = path;
                             }
                         }
 
@@ -294,7 +296,7 @@ impl P3App {
                             .on_hover_text("Save result to file..\nShortcut: [Enter]")
                             .clicked()
                         {
-                            self.packer.export(&self.export_path);
+                            self.packer.export(&self.settings.export_path);
                         };
                     });
                 })
@@ -391,6 +393,8 @@ impl P3App {
         if let Some(storage) = storage {
             self.packer.scale = epi::get_value(storage, "PPP_scale").unwrap_or_default();
             self.packer.aspect = epi::get_value(storage, "PPP_ratio").unwrap_or_default();
+            self.settings.export_path =
+                epi::get_value(storage, "PPP_export_path").unwrap_or_default();
             self.settings.zip = epi::get_value(storage, "PPP_zip").unwrap_or_default();
         }
     }
