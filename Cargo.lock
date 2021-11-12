@@ -1455,6 +1455,7 @@ dependencies = [
  "image",
  "imagesize",
  "rfd",
+ "serde",
  "winit",
 ]
 

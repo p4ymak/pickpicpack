@@ -1,7 +1,7 @@
 use chrono::Local;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use winit::event_loop::EventLoop;
-
 pub const OUTPUT_NAME: &str = "PickPicPack";
 pub const WINDOW_SCALE: f32 = 2.0;
 
@@ -48,7 +48,7 @@ pub fn size_by_side_and_ratio(side: &ImageScaling, aspect: &AspectRatio) -> Rect
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum AspectRatio {
     Square,
     Screen,
@@ -80,7 +80,7 @@ impl AspectRatio {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Serialize, Deserialize)]
 pub enum ImageScaling {
     Preview(f32),
     FitScreen,

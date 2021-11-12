@@ -8,7 +8,6 @@ use std::path::PathBuf;
 #[derive(Debug)]
 struct Settings {
     width: f32,
-    export_scale: ImageScaling,
     preview_size: RectSize,
     zip: bool,
 }
@@ -16,7 +15,6 @@ impl Default for Settings {
     fn default() -> Settings {
         Settings {
             width: window_width(WINDOW_SCALE),
-            export_scale: ImageScaling::default(),
             preview_size: RectSize::default(),
             zip: false,
         }
@@ -46,11 +44,10 @@ impl epi::App for P3App {
         &mut self,
         _ctx: &egui::CtxRef,
         _frame: &mut epi::Frame<'_>,
-        _storage: Option<&dyn Storage>,
+        storage: Option<&dyn Storage>,
     ) {
         self.packer = Packer::new(self.settings.width, AspectRatio::Square);
-        #[cfg(feature = "persistence")]
-        self.load(&mut storage);
+        self.load(storage);
         self.settings.preview_size = size_by_side_and_ratio(
             &ImageScaling::Preview(self.settings.width),
             &self.packer.aspect,
@@ -59,18 +56,8 @@ impl epi::App for P3App {
         self.to_update = true;
     }
 
-    #[cfg(feature = "persistence")]
-    fn load(&mut self, storage: &dyn epi::Storage) {
-        // self.settings = epi::get_value(storage, "settings").unwrap_or_default();
-        *self.settings.export_scale = epi::set_value(storage, "PPP_scale").unwrap_or_default();
-        *self.packer.aspect = epi::set_value(storage, "PPP_ratio").unwrap_or_default();
-        *self.settings.zip = epi::set_value(storage, "PPP_zip").unwrap_or_default();
-        println!("loaded!");
-    }
-
-    #[cfg(feature = "persistence")]
     fn save(&mut self, storage: &mut dyn epi::Storage) {
-        epi::set_value(storage, "PPP_scale", &self.settings.export_scale);
+        epi::set_value(storage, "PPP_scale", &self.packer.scale);
         epi::set_value(storage, "PPP_ratio", &self.packer.aspect);
         epi::set_value(storage, "PPP_zip", &self.settings.zip);
     }
@@ -97,7 +84,6 @@ impl epi::App for P3App {
                 self.settings.preview_size.w as f32,
                 self.settings.preview_size.h as f32,
             );
-            // self.resizable(false);
             frame.set_window_size(size);
 
             self.to_update = false;
@@ -132,21 +118,6 @@ impl epi::App for P3App {
         //Draw GUI if mouse hovered window
         if self.packer.items.is_empty() || ctx.input().pointer.has_pointer() {
             self.hud(ctx, frame);
-            //     egui::Area::new("EXIT")
-            //         .order(Order::Foreground)
-            //         .anchor(egui::Align2::RIGHT_TOP, [0.0, 0.0])
-            //         .show(ctx, |ui| {
-            //             if ui
-            //                 .add(
-            //                     egui::Button::new("X")
-            //                         .fill(egui::Color32::DEBUG_COLOR)
-            //                         .sense(Sense::click()),
-            //                 )
-            //                 .clicked()
-            //             {
-            //                 frame.quit();
-            //             }
-            //         });
         }
 
         self.detect_files_being_dropped(ctx);
@@ -224,8 +195,8 @@ impl P3App {
                             ))
                             .clicked()
                         {
-                            #[cfg(feature = "persistence")]
-                            self.save();
+                            // #[cfg(feature = "persistence")]
+                            // self.save();
                             frame.quit();
                         }
                     });
@@ -414,5 +385,13 @@ impl P3App {
             self.packer.undo();
         }
         self.to_update = true;
+    }
+
+    fn load(&mut self, storage: Option<&dyn epi::Storage>) {
+        if let Some(storage) = storage {
+            self.packer.scale = epi::get_value(storage, "PPP_scale").unwrap_or_default();
+            self.packer.aspect = epi::get_value(storage, "PPP_ratio").unwrap_or_default();
+            self.settings.zip = epi::get_value(storage, "PPP_zip").unwrap_or_default();
+        }
     }
 }
