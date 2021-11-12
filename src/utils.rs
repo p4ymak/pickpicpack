@@ -28,26 +28,6 @@ pub fn export_file_path(path: &Path, ext: &str) -> PathBuf {
     Path::new(path).join(format!("{}_{}.{}", OUTPUT_NAME, time_stamp, ext))
 }
 
-pub fn size_by_side_and_ratio(side: &ImageScaling, aspect: &AspectRatio) -> RectSize {
-    let ratio = aspect.div();
-
-    let k = 1024.0;
-    let side = match side {
-        ImageScaling::Preview(w) => *w,
-        ImageScaling::FitScreen => get_screen_size().w as f32,
-        ImageScaling::HalfK => k / 2.0,
-        ImageScaling::OneK => k,
-        ImageScaling::TwoK => k * 2.0,
-        ImageScaling::FourK => k * 4.0,
-        _ => 0.0,
-    };
-    if ratio > 1.0 {
-        RectSize::new(side as usize, (side * ratio) as usize)
-    } else {
-        RectSize::new((side / ratio) as usize, side as usize)
-    }
-}
-
 #[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum AspectRatio {
     Square,
@@ -104,5 +84,41 @@ pub struct RectSize {
 impl RectSize {
     pub fn new(w: usize, h: usize) -> Self {
         RectSize { w, h }
+    }
+
+    pub fn by_scale_and_ratio(scaling: &ImageScaling, aspect: &AspectRatio) -> Self {
+        let ratio = aspect.div();
+
+        let k = 1024.0;
+        let side = match scaling {
+            ImageScaling::Preview(w) => {
+                if ratio >= 1.0 {
+                    return RectSize::new(*w as usize, (*w * ratio) as usize);
+                } else {
+                    return RectSize::new((*w / ratio) as usize, *w as usize);
+                }
+            }
+            ImageScaling::FitScreen => {
+                let screen_size = get_screen_size();
+                let w = screen_size.w as f32;
+                let h = screen_size.h as f32;
+                if ratio <= h / w {
+                    return RectSize::new(w as usize, (w * ratio) as usize);
+                } else {
+                    return RectSize::new((h / ratio) as usize, h as usize);
+                }
+            }
+            ImageScaling::HalfK => k / 2.0,
+            ImageScaling::OneK => k,
+            ImageScaling::TwoK => k * 2.0,
+            ImageScaling::FourK => k * 4.0,
+            _ => 0.0, //Actual is not covered because it is unknown.
+        };
+
+        if ratio <= 1.0 {
+            RectSize::new(side as usize, (side * ratio) as usize)
+        } else {
+            RectSize::new((side / ratio) as usize, side as usize)
+        }
     }
 }

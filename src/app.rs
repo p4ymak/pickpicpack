@@ -24,8 +24,8 @@ impl Default for Settings {
 }
 
 #[derive(Default)]
-#[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
-#[cfg_attr(feature = "persistence", serde(default))] // if we add new fields, give them default values when deserializing old state
+// #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
+// #[cfg_attr(feature = "persistence", serde(default))] // if we add new fields, give them default values when deserializing old state
 pub struct P3App {
     settings: Settings,
     packer: Packer,
@@ -40,7 +40,12 @@ impl epi::App for P3App {
     fn warm_up_enabled(&self) -> bool {
         true
     }
-
+    fn persist_native_window(&self) -> bool {
+        true
+    }
+    fn persist_egui_memory(&self) -> bool {
+        false
+    }
     fn setup(
         &mut self,
         _ctx: &egui::CtxRef,
@@ -49,7 +54,7 @@ impl epi::App for P3App {
     ) {
         self.packer = Packer::new(self.settings.width, AspectRatio::Square);
         self.load(storage);
-        self.settings.preview_size = size_by_side_and_ratio(
+        self.settings.preview_size = RectSize::by_scale_and_ratio(
             &ImageScaling::Preview(self.settings.width),
             &self.packer.aspect,
         );
@@ -78,7 +83,7 @@ impl epi::App for P3App {
                 self.texture = Some((size, texture));
             }
 
-            self.settings.preview_size = size_by_side_and_ratio(
+            self.settings.preview_size = RectSize::by_scale_and_ratio(
                 &ImageScaling::Preview(self.settings.width),
                 &self.packer.aspect,
             );

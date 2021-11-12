@@ -88,14 +88,21 @@ impl Packer {
                 max_w = max_w.max(item.0.w + item.0.x);
                 max_h = max_h.max(item.0.h + item.0.y);
             }
-            let (is_preview, image_size) = match task {
+            let (is_preview, mut image_size) = match task {
                 CombineTask::Preview(rect) => (true, rect),
                 CombineTask::Export(rect) => (false, rect),
             };
             let crop = (max_w as f32)
                 .max(max_h as f32 / self.aspect.div())
                 .min(packed.0 as f32);
-            let div = image_size.w as f32 / crop;
+            let mut div = image_size.w as f32 / crop;
+
+            //In case of pixel perfect big picture
+            if self.scale == ImageScaling::Actual && !is_preview {
+                div = 1.0;
+                image_size = RectSize::new(max_w, max_h);
+            }
+
             let mut combined = RgbaImage::new(image_size.w as u32, image_size.h as u32);
             for item in &packed.2 {
                 if let Ok(image) = image::open(&item.1.file) {
@@ -125,7 +132,8 @@ impl Packer {
         None
     }
     fn preview(&mut self) {
-        let size = size_by_side_and_ratio(&ImageScaling::Preview(self.preview_width), &self.aspect);
+        let size =
+            RectSize::by_scale_and_ratio(&ImageScaling::Preview(self.preview_width), &self.aspect);
         if let Some(combined) = self.combine_image(CombineTask::Preview(size)) {
             self.preview = Some(Preview {
                 size,
@@ -142,7 +150,7 @@ impl Packer {
         }
     }
     pub fn export(&mut self, path: &Path) {
-        let size = size_by_side_and_ratio(&self.scale, &self.aspect);
+        let size = RectSize::by_scale_and_ratio(&self.scale, &self.aspect);
 
         if let Some(combined) = self.combine_image(CombineTask::Export(size)) {
             let result = combined.save(export_file_path(path, "png"));
