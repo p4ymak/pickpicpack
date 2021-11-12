@@ -7,7 +7,7 @@ use eframe::egui;
 use utils::{window_width, WINDOW_SCALE};
 fn main() {
     let icon = eframe::epi::IconData {
-        rgba: image::open("/home/p4ymak/Work/00_P4/Rust/PickPicPack/icon/icon/PickPicPack.png")
+        rgba: image::open("./icon.png")
             .unwrap()
             .to_rgba8()
             // .pixels()
