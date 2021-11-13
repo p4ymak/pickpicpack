@@ -56,12 +56,12 @@ impl epi::App for P3App {
         _frame: &mut epi::Frame<'_>,
         storage: Option<&dyn Storage>,
     ) {
-        self.packer = Packer::new(self.settings.width, AspectRatio::Square);
-        self.load(storage);
-        self.settings.preview_size = RectSize::by_scale_and_ratio(
-            &ImageScaling::Preview(self.settings.width),
-            &self.packer.aspect,
+        self.packer = Packer::new(
+            self.settings.width,
+            AspectRatio::default(),
+            ImageScaling::default(),
         );
+        self.load(storage);
         self.packer.update(&[]);
         self.to_update = true;
     }
@@ -153,19 +153,8 @@ impl P3App {
                             "Aspect ratio of packaging area. Updates package on change..";
                         ratio.label("Ratio:").on_hover_text(tooltip_ratio);
                         if ratio
-                            .selectable_value(
-                                &mut self.packer.aspect,
-                                AspectRatio::Square,
-                                "Square",
-                            )
+                            .selectable_value(&mut self.packer.aspect, AspectRatio::Square, "1 : 1")
                             .clicked()
-                            || ratio
-                                .selectable_value(
-                                    &mut self.packer.aspect,
-                                    AspectRatio::Screen,
-                                    "Screen",
-                                )
-                                .clicked()
                             || ratio
                                 .selectable_value(
                                     &mut self.packer.aspect,
@@ -178,6 +167,20 @@ impl P3App {
                                     &mut self.packer.aspect,
                                     AspectRatio::ThreeFour,
                                     "3 : 4",
+                                )
+                                .clicked()
+                            || ratio
+                                .selectable_value(
+                                    &mut self.packer.aspect,
+                                    AspectRatio::ThreeTwo,
+                                    "3 : 2",
+                                )
+                                .clicked()
+                            || ratio
+                                .selectable_value(
+                                    &mut self.packer.aspect,
+                                    AspectRatio::TwoThree,
+                                    "2 : 3",
                                 )
                                 .clicked()
                             || ratio
@@ -325,8 +328,7 @@ impl P3App {
                         //         .text("My favorite repo"),
                         // );
                         ui.label(format!(
-                            "{} v{} by Roman Chumak",
-                            env!("CARGO_PKG_NAME"),
+                            "PickPicPack v{} by Roman Chumak",
                             env!("CARGO_PKG_VERSION"),
                         ));
                     });
@@ -386,7 +388,7 @@ impl P3App {
     // Key Functions
     fn clear(&mut self, ctx: &egui::CtxRef) {
         self.fader(ctx, "clear");
-        self.packer = Packer::new(self.settings.width, self.packer.aspect);
+        self.packer = Packer::new(self.settings.width, self.packer.aspect, self.packer.scale);
         self.to_update = true;
     }
     fn undo(&mut self, ctx: &egui::CtxRef) {

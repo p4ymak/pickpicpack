@@ -6,15 +6,15 @@ use app::*;
 use eframe::egui;
 use utils::{window_width, WINDOW_SCALE};
 fn main() {
-    let icon = eframe::epi::IconData {
-        rgba: image::open("./icon.png")
-            .unwrap()
-            .to_rgba8()
-            // .pixels()
-            .to_vec(),
-        width: 512,
-        height: 512,
-    };
+    // let icon = eframe::epi::IconData {
+    //     rgba: image::open("./icon.png")
+    //         .unwrap()
+    //         .to_rgba8()
+    //         // .pixels()
+    //         .to_vec(),
+    //     width: 512,
+    //     height: 512,
+    // };
     let side = window_width(WINDOW_SCALE);
     let start_state = P3App::default();
     let options = eframe::NativeOptions {
@@ -25,7 +25,7 @@ fn main() {
         initial_window_size: Some(egui::Vec2 { x: side, y: side }),
         drag_and_drop_support: true,
         transparent: true,
-        icon_data: Some(icon),
+        icon_data: None, //Some(icon),
     };
     eframe::run_native(Box::new(start_state), options);
 }

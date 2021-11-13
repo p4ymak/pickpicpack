@@ -38,10 +38,11 @@ impl Default for Packer {
     }
 }
 impl Packer {
-    pub fn new(preview_width: f32, aspect: AspectRatio) -> Self {
+    pub fn new(preview_width: f32, aspect: AspectRatio, scale: ImageScaling) -> Self {
         Packer {
             preview_width,
             aspect,
+            scale,
             ..Default::default()
         }
     }

@@ -1,9 +1,20 @@
 [package]
-name = "PickPicPack"
+name = "pickpicpack"
 version = "0.1.3"
 edition = "2021"
 authors = ["Roman Chumak <p4ymak@gmail.com>"]
 resolver = "2"
+description = "Packing multiple images to one."
+
+[package.metadata.bundle]
+name = "PickPicPack"
+identifier = "com.p4.pickpicpack"
+icon = ["./icon/32x32.png", "./icon/128x128.png", "./icon/128x128@2x.png"]
+short_description = "Packing multiple images to one."
+long_decription = """
+Drag'n'Drop utility for packing images.
+"""
+category = "Graphics and Design"
 
 [dependencies]
 eframe = {version = "0.15.0", features = ["persistence"] }

@@ -31,9 +31,10 @@ pub fn export_file_path(path: &Path, ext: &str) -> PathBuf {
 #[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum AspectRatio {
     Square,
-    Screen,
     FourThree,
     ThreeFour,
+    ThreeTwo,
+    TwoThree,
     SixteenNine,
     NineSixteen,
     Zero,
@@ -47,12 +48,10 @@ impl AspectRatio {
     pub fn div(&self) -> f32 {
         match self {
             AspectRatio::Square => 1.0,
-            AspectRatio::Screen => {
-                let screen = get_screen_size();
-                screen.h as f32 / screen.w as f32
-            }
             AspectRatio::FourThree => 3.0 / 4.0,
             AspectRatio::ThreeFour => 4.0 / 3.0,
+            AspectRatio::ThreeTwo => 2.0 / 3.0,
+            AspectRatio::TwoThree => 3.0 / 2.0,
             AspectRatio::SixteenNine => 9.0 / 16.0,
             AspectRatio::NineSixteen => 16.0 / 9.0,
             _ => 0.0,
@@ -60,7 +59,7 @@ impl AspectRatio {
     }
 }
 
-#[derive(PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ImageScaling {
     Preview(f32),
     FitScreen,
