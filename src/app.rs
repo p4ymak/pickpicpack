@@ -21,7 +21,7 @@ impl Default for Settings {
             width: 512.0,
             preview_size: RectSize::default(),
             zip: false,
-            export_path: PathBuf::default(),
+            export_path: std::env::current_dir().unwrap_or_default(),
         }
     }
 }
@@ -329,6 +329,7 @@ impl P3App {
                             self.export();
                         };
                     });
+                    // println!("HEADER: {:?}", ui.min_rect());
                 })
             });
 

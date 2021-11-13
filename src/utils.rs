@@ -14,13 +14,15 @@ pub fn window_width(size: RectSize, div: f32) -> f32 {
 }
 
 pub fn get_screen_size() -> RectSize {
-    if let Some(monitor) = winit::event_loop::EventLoop::new().primary_monitor() {
-        return RectSize::new(
+    let event_loop = winit::event_loop::EventLoop::new();
+    match event_loop.primary_monitor() {
+        Some(monitor) => RectSize::new(
             monitor.size().width as usize,
             monitor.size().height as usize,
-        );
-    };
-    RectSize::new(1280, 720)
+        ),
+
+        _ => RectSize::new(1280, 720),
+    }
 }
 
 pub fn file_timestamp() -> String {
