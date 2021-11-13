@@ -9,8 +9,7 @@ use zip::{write::FileOptions, CompressionMethod};
 pub const OUTPUT_NAME: &str = "PickPicPack";
 pub const WINDOW_SCALE: f32 = 2.0;
 
-pub fn window_width(div: f32) -> f32 {
-    let size = get_screen_size();
+pub fn window_width(size: RectSize, div: f32) -> f32 {
     (size.w.min(size.h) as f32 / (100.0 * div)).round() * 100.0
 }
 

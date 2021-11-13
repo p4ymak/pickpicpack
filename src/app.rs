@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 #[derive(Debug)]
 struct Settings {
+    screen_size: RectSize,
     width: f32,
     preview_size: RectSize,
     zip: bool,
@@ -16,7 +17,8 @@ struct Settings {
 impl Default for Settings {
     fn default() -> Settings {
         Settings {
-            width: window_width(WINDOW_SCALE),
+            screen_size: RectSize::default(),
+            width: 512.0,
             preview_size: RectSize::default(),
             zip: false,
             export_path: PathBuf::default(),
@@ -435,6 +437,21 @@ impl P3App {
             self.settings.export_path =
                 epi::get_value(storage, "PPP_export_path").unwrap_or_default();
             self.settings.zip = epi::get_value(storage, "PPP_zip").unwrap_or_default();
+        }
+    }
+
+    pub fn new(screen_size: RectSize) -> Self {
+        let width = window_width(screen_size, WINDOW_SCALE);
+        P3App {
+            settings: Settings {
+                screen_size,
+                width,
+                ..Default::default()
+            },
+            packer: Packer::new(width, AspectRatio::default(), ImageScaling::default()),
+            texture: None,
+            to_update: false,
+            fader: None,
         }
     }
 }

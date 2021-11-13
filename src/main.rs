@@ -15,9 +15,10 @@ fn main() {
     //     width: 512,
     //     height: 512,
     // };
-    let side = window_width(WINDOW_SCALE);
-    println!("{:?}", get_screen_size());
-    let start_state = P3App::default();
+    let screen_size = get_screen_size();
+    let side = window_width(screen_size, WINDOW_SCALE);
+    let start_state = P3App::new(screen_size);
+
     let options = eframe::NativeOptions {
         always_on_top: true,
         decorated: false,
