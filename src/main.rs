@@ -20,8 +20,8 @@ fn main() {
     let start_state = P3App::new(screen_size);
 
     let options = eframe::NativeOptions {
-        always_on_top: true,
-        decorated: false,
+        always_on_top: false,
+        decorated: true,
         resizable: true,
         maximized: false,
         initial_window_size: Some(egui::Vec2 { x: side, y: side }),

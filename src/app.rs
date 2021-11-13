@@ -4,9 +4,12 @@ use core::time::Duration;
 use eframe::{egui, epi};
 use egui::*;
 use epi::Storage;
+use plot::{Plot, PlotImage, Polygon, Value, Values};
 // use futures::executor::block_on;
 // use native_dialog::FileDialog;
 use std::path::PathBuf;
+
+// FRAMING_STYLE: egui::containers::Frame = ;
 
 #[derive(Debug)]
 struct Settings {
@@ -119,31 +122,71 @@ impl epi::App for P3App {
         }
 
         //Draw Image
+        // egui::Area::new("image")
+        //     .order(Order::Background)
+        //     .show(ctx, |ui| {
+        //         if let Some((size, texture)) = self.texture {
+        //             // if ui
+        //             //     .add(egui::Image::new(texture, size).sense(Sense::drag()))
+        //             //     .dragged()
+        //             // {
+        //             //     frame.drag_window();
+        //             // }
+        //         }
+        //     });
+
+        // let painter = ctx.layer_painter(LayerId::new(Order::Background, Id::new("box")));
+        let screen_rect = ctx.input().screen_rect();
+        let w = screen_rect.max.x;
+        let h = screen_rect.max.y;
+        let ratio = self.packer.aspect.div();
+        let (box_w, box_h) = match ratio <= h / w {
+            true => (w, (w * ratio)),
+            false => ((h / ratio), h),
+        };
+
+        let fit_rect = Rect::from_two_pos(pos2(0.0, 0.0), pos2(box_w, box_h));
+        // painter.rect_stroke(fit_rect, 0.0, egui::Stroke::new(2.0, Color32::DARK_GRAY));
+
         egui::Area::new("image")
             .order(Order::Background)
+            .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
+            .drag_bounds(screen_rect)
             .show(ctx, |ui| {
-                if let Some((size, texture)) = self.texture {
-                    if ui
-                        .add(egui::Image::new(texture, size).sense(Sense::drag()))
-                        .dragged()
-                    {
-                        frame.drag_window();
-                    }
+                if let Some((_size, texture)) = self.texture {
+                    let image_preview =
+                        PlotImage::new(texture, Value::new(0.0, 0.0), [box_w, box_h]);
+                    let box_frame = Polygon::new(Values::from_values(vec![
+                        Value::new(-box_w / 2.0, -box_h / 2.0),
+                        Value::new(box_w / 2.0, -box_h / 2.0),
+                        Value::new(box_w / 2.0, box_h / 2.0),
+                        Value::new(-box_w / 2.0, box_h / 2.0),
+                    ]));
+                    ui.add(
+                        Plot::new("preview")
+                            .polygon(box_frame)
+                            .image(image_preview)
+                            .width(screen_rect.max.x)
+                            .height(screen_rect.max.y)
+                            .allow_drag(false)
+                            .data_aspect(1.0)
+                            .view_aspect(1.0 / self.packer.aspect.div())
+                            .show_x(false)
+                            .show_y(false)
+                            .show_background(false)
+                            .show_axes([false, false]),
+                    );
                 }
             });
-
-        let painter = ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("fader")));
-        let screen_rect = ctx.input().screen_rect();
-        painter.rect_stroke(screen_rect, 0.0, egui::Stroke::new(2.0, Color32::GRAY));
-        if self.packer.items.is_empty() {
-            painter.text(
-                Pos2::new(screen_rect.max.x / 2.0, screen_rect.max.y / 2.0),
-                Align2::CENTER_CENTER,
-                "DROP HERE",
-                TextStyle::Heading,
-                Color32::DARK_GRAY,
-            );
-        }
+        // if self.packer.items.is_empty() {
+        //     painter.text(
+        //         Pos2::new(screen_rect.max.x / 2.0, screen_rect.max.y / 2.0),
+        //         Align2::CENTER_CENTER,
+        //         "DROP HERE",
+        //         TextStyle::Heading,
+        //         Color32::DARK_GRAY,
+        //     );
+        // }
         //Draw GUI if mouse hovered window
         if self.packer.items.is_empty() || ctx.input().pointer.has_pointer() {
             self.hud(ctx, frame);
@@ -158,11 +201,18 @@ impl P3App {
     //GUI reaction
     fn hud(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
         egui::Window::new("Settings")
-            .anchor(egui::Align2::CENTER_TOP, [0.0, 0.0])
+            .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
             .title_bar(false)
             .resizable(false)
             .collapsible(false)
             // .auto_sized()
+            .frame(Frame {
+                margin: Vec2::new(8.0, 8.0),
+                corner_radius: 0.0,
+                shadow: epaint::Shadow::small_dark(),
+                fill: Color32::from_rgb(33, 33, 33),
+                stroke: Stroke::new(1.0, Color32::DARK_GRAY),
+            })
             .show(ctx, |panel| {
                 panel.vertical(|ui| {
                     //RADIO - SET RATIO
@@ -338,18 +388,9 @@ impl P3App {
                         };
                     });
                     // println!("HEADER: {:?}", ui.min_rect());
-                })
-            });
 
-        if self.packer.items.is_empty() {
-            egui::Window::new("About")
-                .anchor(egui::Align2::CENTER_BOTTOM, [0.0, 0.0])
-                // .frame(egui::containers::Frame::default())
-                .title_bar(false)
-                .resizable(false)
-                .collapsible(false)
-                .show(ctx, |about| {
-                    about.vertical_centered(|ui| {
+                    ui.separator();
+                    ui.vertical_centered(|ui| {
                         // ui.add(
                         //     egui::Hyperlink::new("https://github.com/emilk/egui")
                         //         .text("My favorite repo"),
@@ -359,8 +400,8 @@ impl P3App {
                             env!("CARGO_PKG_VERSION"),
                         ));
                     });
-                });
-        }
+                })
+            });
     }
 
     fn fader(&mut self, text: &str) {
