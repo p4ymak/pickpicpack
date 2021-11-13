@@ -23,7 +23,7 @@ impl Default for Settings {
             width: 512.0,
             preview_size: RectSize::default(),
             zip: false,
-            export_path: std::env::current_dir().unwrap_or_default(),
+            export_path: default_path(),
         }
     }
 }
@@ -309,10 +309,14 @@ impl P3App {
                             .button("Set Directory...")
                             .on_hover_text("Where to place resulting image..");
                         if button_path.clicked() {
-                            if let Some(path) = rfd::FileDialog::new()
-                                .set_directory(&self.settings.export_path)
-                                .pick_folder()
-                            {
+                            if self.settings.export_path.exists() {
+                                if let Some(path) = rfd::FileDialog::new()
+                                    .set_directory(&self.settings.export_path)
+                                    .pick_folder()
+                                {
+                                    self.settings.export_path = path;
+                                }
+                            } else if let Some(path) = rfd::FileDialog::new().pick_folder() {
                                 self.settings.export_path = path;
                             }
                             // if let Some(path) = block_on(open_dialog(&self.settings.export_path)) {
@@ -440,7 +444,7 @@ impl P3App {
             self.packer.scale = epi::get_value(storage, "PPP_scale").unwrap_or_default();
             self.packer.aspect = epi::get_value(storage, "PPP_ratio").unwrap_or_default();
             self.settings.export_path =
-                epi::get_value(storage, "PPP_export_path").unwrap_or_default();
+                epi::get_value(storage, "PPP_export_path").unwrap_or_else(default_path);
             self.settings.zip = epi::get_value(storage, "PPP_zip").unwrap_or_default();
         }
     }

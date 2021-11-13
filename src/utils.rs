@@ -1,4 +1,5 @@
 use chrono::Local;
+use directories::UserDirs;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{Read, Write};
@@ -28,6 +29,18 @@ pub fn get_screen_size() -> RectSize {
 pub fn file_timestamp() -> String {
     let time_stamp = Local::now().format("%Y-%m-%d_%H-%M-%S");
     format!("{}_{}", OUTPUT_NAME, time_stamp)
+}
+
+pub fn default_path() -> PathBuf {
+    if let Some(user_dirs) = UserDirs::new() {
+        if let Some(pics_dir) = user_dirs.picture_dir() {
+            pics_dir.to_owned()
+        } else {
+            PathBuf::default()
+        }
+    } else {
+        PathBuf::default()
+    }
 }
 
 #[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
