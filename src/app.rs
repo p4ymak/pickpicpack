@@ -5,8 +5,8 @@ use eframe::{egui, epi};
 use egui::*;
 use epi::Storage;
 // use futures::executor::block_on;
-use native_dialog::FileDialog;
-use std::path::{Path, PathBuf};
+// use native_dialog::FileDialog;
+use std::path::PathBuf;
 
 #[derive(Debug)]
 struct Settings {
@@ -306,12 +306,12 @@ impl P3App {
 
                         buttons.separator();
                         let button_path = buttons
-                            .button("Directory...")
+                            .button("Set Directory...")
                             .on_hover_text("Where to place resulting image..");
                         if button_path.clicked() {
-                            if let Ok(Some(path)) = FileDialog::new()
-                                .set_location(&self.settings.export_path)
-                                .show_open_single_dir()
+                            if let Some(path) = rfd::FileDialog::new()
+                                .set_directory(&self.settings.export_path)
+                                .pick_folder()
                             {
                                 self.settings.export_path = path;
                             }
