@@ -10,11 +10,12 @@ description = "Packing multiple images to one."
 name = "PickPicPack"
 identifier = "com.p4.pickpicpack"
 icon = ["./icon/32x32.png", "./icon/128x128.png", "./icon/128x128@2x.png"]
+copyright = "Copyright (c) Roman Chumak 2021. All rights reserved."
+category = "Graphics and Design"
 short_description = "Packing multiple images to one."
 long_decription = """
 Drag'n'Drop utility for packing images.
 """
-category = "Graphics and Design"
 
 [dependencies]
 eframe = {version = "0.15.0", features = ["persistence"] }
@@ -25,6 +26,7 @@ winit = "0.25.0"
 chrono = "0.4.19"
 imagesize = "0.9.0"
 serde = "1.0.130"
+zip = "0.5.13"
 
 [profile.release]
 opt-level = 3

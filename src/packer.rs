@@ -4,7 +4,7 @@ use crunch::{pack, Item, PackedItems, Rect};
 use eframe::egui::{Color32, DroppedFile};
 use image::imageops::{replace, resize, thumbnail, FilterType};
 use image::RgbaImage;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct Preview {
@@ -150,14 +150,31 @@ impl Packer {
             })
         }
     }
-    pub fn export(&mut self, path: &Path) {
+    pub fn export(&mut self, path: &Path, to_zip: bool) {
         let size = RectSize::by_scale_and_ratio(&self.scale, &self.aspect);
-
+        let file_name = file_timestamp();
         if let Some(combined) = self.combine_image(CombineTask::Export(size)) {
-            let result = combined.save(export_file_path(path, "png"));
-            match result {
+            let img_result =
+                combined.save(Path::new(path).join(format!("{}.{}", file_name, "png")));
+            match img_result {
                 Ok(_) => println!("Combined image saved!"),
-                Err(_) => println!("Couldn't save image!"),
+                Err(err) => println!("Couldn't save image!\n{}", err),
+            }
+            if to_zip {
+                let files: Vec<&PathBuf> = self
+                    .items
+                    .iter()
+                    .flatten()
+                    .map(|item| &item.data.file)
+                    .collect();
+                let zip_result = archive_files(
+                    files,
+                    Path::new(path).join(format!("{}.{}", file_name, "zip")),
+                );
+                match zip_result {
+                    Ok(_) => println!("Zip archive saved!"),
+                    Err(err) => println!("Couldn't save archive!\n{}", err),
+                }
             }
         }
     }
@@ -171,7 +188,6 @@ fn pack_to_ratio(
     step: usize,
 ) -> Result<(usize, usize, PackedItems<Pic>), ()> {
     let height = width * ratio;
-    println!("{} TRY pack to {}:{}", step, width, height);
     let rect = Rect::of_size(width as usize, height as usize);
     let packed = pack(rect, items.to_owned());
     if let Ok(packed_items) = packed {

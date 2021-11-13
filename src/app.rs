@@ -32,6 +32,7 @@ pub struct P3App {
     packer: Packer,
     texture: Option<(egui::Vec2, egui::TextureId)>,
     to_update: bool,
+    fader: Option<String>,
 }
 
 impl epi::App for P3App {
@@ -74,7 +75,20 @@ impl epi::App for P3App {
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
+        // if let Some(message) = &self.fader {
+        //     let painter = ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("fader")));
+        //     let screen_rect = ctx.input().screen_rect();
+        //     painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
+        //     painter.text(
+        //         screen_rect.center(),
+        //         Align2::CENTER_CENTER,
+        //         message,
+        //         TextStyle::Heading,
+        //         Color32::WHITE,
+        //     );
+        // }
         if self.to_update {
+            // self.fader = None;
             if let Some(texture) = self.texture {
                 frame.tex_allocator().free(texture.1);
             }
@@ -218,7 +232,9 @@ impl P3App {
                     ui.separator();
                     ui.horizontal(|export_size| {
                         let tooltip_size = "Maximum dimension of exported image..";
-                        export_size.label("Size:").on_hover_text(tooltip_size);
+                        export_size
+                            .label("Export Size:")
+                            .on_hover_text(tooltip_size);
                         if export_size
                             .selectable_value(
                                 &mut self.packer.scale,
@@ -274,14 +290,14 @@ impl P3App {
                             .on_hover_text("Start from scratch..\nShortcut: [Escape]")
                             .clicked()
                         {
-                            self.clear(ctx);
+                            self.clear();
                         }
                         if buttons
                             .button("Undo")
                             .on_hover_text("Remove last drop..\nShortcut: [Backspace]")
                             .clicked()
                         {
-                            self.undo(ctx);
+                            self.undo();
                         }
 
                         buttons.separator();
@@ -300,7 +316,7 @@ impl P3App {
                         buttons.separator();
                         buttons
                             .checkbox(&mut self.settings.zip, "ZIP")
-                            .on_hover_text("Also pack all source images to archive.");
+                            .on_hover_text("Also pack all source images to archive..");
 
                         buttons.separator();
                         if buttons
@@ -308,7 +324,7 @@ impl P3App {
                             .on_hover_text("Save result to file..\nShortcut: [Enter]")
                             .clicked()
                         {
-                            self.packer.export(&self.settings.export_path);
+                            self.export();
                         };
                     });
                 })
@@ -336,17 +352,12 @@ impl P3App {
         }
     }
 
-    fn fader(&mut self, ctx: &egui::CtxRef, text: &str) {
-        let painter = ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("fader")));
-        let screen_rect = ctx.input().screen_rect();
-        painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
-        painter.text(
-            screen_rect.center(),
-            Align2::CENTER_CENTER,
-            text,
-            TextStyle::Heading,
-            Color32::WHITE,
-        );
+    fn fader(&mut self, text: &str) {
+        if text.is_empty() {
+            self.fader = None;
+        } else {
+            self.fader = Some(text.to_string());
+        }
     }
 
     fn detect_files_being_dropped(&mut self, ctx: &egui::CtxRef) {
@@ -357,9 +368,10 @@ impl P3App {
 
         // Collect dropped files:
         if !ctx.input().raw.dropped_files.is_empty() {
-            self.fader(ctx, "packing");
-
+            self.fader("packing");
+            ctx.request_repaint();
             self.update_packer(&ctx.input().raw.dropped_files);
+            self.fader("");
             self.to_update = true;
         }
     }
@@ -373,34 +385,49 @@ impl P3App {
                     key: egui::Key::Backspace,
                     pressed: false,
                     ..
-                } => self.undo(ctx),
+                } => self.undo(),
 
                 Event::Key {
                     key: egui::Key::Escape,
                     pressed: true,
                     ..
-                } => self.clear(ctx),
+                } => self.clear(),
+
+                Event::Key {
+                    key: egui::Key::Enter,
+                    pressed: true,
+                    ..
+                } => self.export(),
                 _ => (),
             }
         }
     }
 
     // Key Functions
-    fn clear(&mut self, ctx: &egui::CtxRef) {
-        self.fader(ctx, "clear");
+    fn clear(&mut self) {
+        self.fader("clear");
         self.packer = Packer::new(self.settings.width, self.packer.aspect, self.packer.scale);
+        self.fader("");
         self.to_update = true;
     }
-    fn undo(&mut self, ctx: &egui::CtxRef) {
-        self.fader(ctx, "undo");
+    fn undo(&mut self) {
+        self.fader("undo");
         if self.packer.items.len() <= 1 {
-            self.clear(ctx);
+            self.clear();
         } else {
             self.packer.undo();
         }
+        self.fader("");
         self.to_update = true;
     }
+    fn export(&mut self) {
+        self.fader("exporting");
+        self.packer
+            .export(&self.settings.export_path, self.settings.zip);
+        self.fader("");
+    }
 
+    // Load state
     fn load(&mut self, storage: Option<&dyn epi::Storage>) {
         if let Some(storage) = storage {
             self.packer.scale = epi::get_value(storage, "PPP_scale").unwrap_or_default();

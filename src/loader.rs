@@ -1,13 +1,11 @@
 use crunch::{Item, Rotation};
 use eframe::egui::DroppedFile;
-// use image::GenericImageView;
 use imagesize::size;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
 pub struct Pic {
-    // pub raw_image: DynamicImage,
     pub file: PathBuf,
     pub width: u32,
     pub height: u32,

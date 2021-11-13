@@ -1,12 +1,7 @@
 use chrono::Local;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use winit::event_loop::EventLoop;
-use zip::{result::ZipResult, ZipWriter};
-use zip::{write::FileOptions, CompressionMethod};
-
 pub const OUTPUT_NAME: &str = "PickPicPack";
 pub const WINDOW_SCALE: f32 = 2.0;
 
@@ -14,6 +9,7 @@ pub fn window_width(div: f32) -> f32 {
     if let Some(monitor) = EventLoop::new().primary_monitor() {
         let size = monitor.size();
         let side = (size.width.min(size.height) as f32 / (100.0 * div)).round() * 100.0;
+        // println!("SIDE: {}", side);
         return side;
     };
     360.0
@@ -126,27 +122,14 @@ impl RectSize {
     }
 }
 
-pub fn archive_files(files: Vec<&PathBuf>, path: PathBuf) -> ZipResult<()> {
-    let zip_file = File::create(&path)?;
-    let mut zip = ZipWriter::new(zip_file);
-    let options = FileOptions::default()
-        .compression_method(CompressionMethod::Stored)
-        .large_file(true);
-    let mut buffer = Vec::new();
-    let prefix_len = format!("{}", files.len()).len();
-    for (i, file) in files.iter().enumerate() {
-        let file_name = format!(
-            "{:0width$}_{}",
-            i + 1,
-            file.file_name().unwrap().to_string_lossy(),
-            width = prefix_len
-        );
-        zip.start_file(file_name, options)?;
-        let mut f = File::open(file)?;
-        f.read_to_end(&mut buffer)?;
-        zip.write_all(&*buffer)?;
-        buffer.clear();
-    }
-    zip.finish()?;
-    Ok(())
+pub fn archive_files(files: Vec<&PathBuf>, path: PathBuf) {
+    use std::io::{Cursor, Write};
+    use zip::{result::ZipResult, ZipArchive, ZipWriter};
+    use zip::{write::FileOptions, CompressionMethod};
+    println!("ZIP to: {:?}", path);
+    let mut archive = Cursor::new(Vec::new());
+    let mut zip = ZipWriter::new(&mut archive);
+    let options = FileOptions::default().compression_method(CompressionMethod::Stored);
+    zip.start_file(path, options)?
+
 }
