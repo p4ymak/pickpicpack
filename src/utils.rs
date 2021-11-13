@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use winit::event_loop::EventLoop;
 use zip::{result::ZipResult, ZipWriter};
 use zip::{write::FileOptions, CompressionMethod};
 
@@ -11,18 +10,16 @@ pub const OUTPUT_NAME: &str = "PickPicPack";
 pub const WINDOW_SCALE: f32 = 2.0;
 
 pub fn window_width(div: f32) -> f32 {
-    if let Some(monitor) = EventLoop::new().primary_monitor() {
-        let size = monitor.size();
-        let side = (size.width.min(size.height) as f32 / (100.0 * div)).round() * 100.0;
-        return side;
-    };
-    360.0
+    let size = get_screen_size();
+    (size.w.min(size.h) as f32 / (100.0 * div)).round() * 100.0
 }
 
 pub fn get_screen_size() -> RectSize {
-    if let Some(monitor) = EventLoop::new().primary_monitor() {
-        let size = monitor.size();
-        return RectSize::new(size.width as usize, size.height as usize);
+    if let Some(monitor) = winit::event_loop::EventLoop::new().primary_monitor() {
+        return RectSize::new(
+            monitor.size().width as usize,
+            monitor.size().height as usize,
+        );
     };
     RectSize::new(1280, 720)
 }
