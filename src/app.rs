@@ -4,7 +4,8 @@ use core::time::Duration;
 use eframe::{egui, epi};
 use egui::*;
 use epi::Storage;
-use futures::executor::block_on;
+// use futures::executor::block_on;
+use native_dialog::FileDialog;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
@@ -308,9 +309,15 @@ impl P3App {
                             .button("Directory...")
                             .on_hover_text("Where to place resulting image..");
                         if button_path.clicked() {
-                            if let Some(path) = block_on(open_dialog(&self.settings.export_path)) {
+                            if let Ok(Some(path)) = FileDialog::new()
+                                .set_location(&self.settings.export_path)
+                                .show_open_single_dir()
+                            {
                                 self.settings.export_path = path;
                             }
+                            // if let Some(path) = block_on(open_dialog(&self.settings.export_path)) {
+                            //     self.settings.export_path = path;
+                            // }
                         }
                         buttons.separator();
                         buttons
@@ -454,11 +461,11 @@ impl P3App {
     }
 }
 
-async fn open_dialog(def: &Path) -> Option<PathBuf> {
-    let dialog = rfd::AsyncFileDialog::new()
-        .set_directory(def)
-        .pick_folder()
-        .await;
+// async fn open_dialog(def: &Path) -> Option<PathBuf> {
+//     let dialog = rfd::AsyncFileDialog::new()
+//         .set_directory(def)
+//         .pick_folder()
+//         .await;
 
-    dialog.map(|d| d.path().to_owned())
-}
+//     dialog.map(|d| d.path().to_owned())
+// }
