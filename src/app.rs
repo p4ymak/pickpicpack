@@ -4,7 +4,8 @@ use core::time::Duration;
 use eframe::{egui, epi};
 use egui::*;
 use epi::Storage;
-use std::path::PathBuf;
+use futures::executor::block_on;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 struct Settings {
@@ -307,14 +308,10 @@ impl P3App {
                             .button("Directory...")
                             .on_hover_text("Where to place resulting image..");
                         if button_path.clicked() {
-                            if let Some(path) = rfd::FileDialog::new()
-                                .set_directory(&self.settings.export_path)
-                                .pick_folder()
-                            {
+                            if let Some(path) = block_on(open_dialog(&self.settings.export_path)) {
                                 self.settings.export_path = path;
                             }
                         }
-
                         buttons.separator();
                         buttons
                             .checkbox(&mut self.settings.zip, "ZIP")
@@ -455,4 +452,13 @@ impl P3App {
             fader: None,
         }
     }
+}
+
+async fn open_dialog(def: &Path) -> Option<PathBuf> {
+    let dialog = rfd::AsyncFileDialog::new()
+        .set_directory(def)
+        .pick_folder()
+        .await;
+
+    dialog.map(|d| d.path().to_owned())
 }
