@@ -1,30 +1,13 @@
 use chrono::Local;
 use directories::UserDirs;
+use eframe::egui::Rect;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use zip::{result::ZipResult, ZipWriter};
 use zip::{write::FileOptions, CompressionMethod};
-
 pub const OUTPUT_NAME: &str = "PickPicPack";
-pub const WINDOW_SCALE: f32 = 2.0;
-
-pub fn window_width(size: RectSize, div: f32) -> f32 {
-    (size.w.min(size.h) as f32 / (100.0 * div)).round() * 100.0
-}
-
-pub fn get_screen_size() -> RectSize {
-    let event_loop = winit::event_loop::EventLoop::new();
-    match event_loop.primary_monitor() {
-        Some(monitor) => RectSize::new(
-            monitor.size().width as usize,
-            monitor.size().height as usize,
-        ),
-
-        _ => RectSize::new(1280, 720),
-    }
-}
 
 pub fn file_timestamp() -> String {
     let time_stamp = Local::now().format("%Y-%m-%d_%H-%M-%S");
@@ -52,7 +35,7 @@ pub enum AspectRatio {
     TwoThree,
     SixteenNine,
     NineSixteen,
-    Zero,
+    Window(f32),
 }
 impl Default for AspectRatio {
     fn default() -> AspectRatio {
@@ -69,7 +52,7 @@ impl AspectRatio {
             AspectRatio::TwoThree => 3.0 / 2.0,
             AspectRatio::SixteenNine => 9.0 / 16.0,
             AspectRatio::NineSixteen => 16.0 / 9.0,
-            _ => 0.0,
+            AspectRatio::Window(r) => *r,
         }
     }
 }
@@ -77,7 +60,7 @@ impl AspectRatio {
 #[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ImageScaling {
     Preview(f32),
-    FitScreen,
+    FitScreen(Rect),
     HalfK,
     OneK,
     TwoK,
@@ -112,10 +95,9 @@ impl RectSize {
                     return RectSize::new((*w / ratio) as usize, *w as usize);
                 }
             }
-            ImageScaling::FitScreen => {
-                let screen_size = get_screen_size();
-                let w = screen_size.w as f32;
-                let h = screen_size.h as f32;
+            ImageScaling::FitScreen(size) => {
+                let w = size.max.x;
+                let h = size.max.y;
                 if ratio <= h / w {
                     return RectSize::new(w as usize, (w * ratio) as usize);
                 } else {

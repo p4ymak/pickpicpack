@@ -37,7 +37,7 @@ impl Default for Settings {
 pub struct P3App {
     settings: Settings,
     packer: Packer,
-    texture: Option<(egui::Vec2, egui::TextureId)>,
+    texture: Option<egui::TextureId>,
     to_update: bool,
     fader: Option<String>,
 }
@@ -97,26 +97,20 @@ impl epi::App for P3App {
         if self.to_update {
             // self.fader = None;
             if let Some(texture) = self.texture {
-                frame.tex_allocator().free(texture.1);
+                frame.tex_allocator().free(texture);
             }
             if let Some(preview) = &self.packer.preview {
                 // Allocate a texture:
                 let texture = frame
                     .tex_allocator()
                     .alloc_srgba_premultiplied((preview.size.w, preview.size.h), &preview.pixels);
-                let size = egui::Vec2::new(preview.size.w as f32, preview.size.h as f32);
-                self.texture = Some((size, texture));
+                self.texture = Some(texture);
             }
 
             self.settings.preview_size = RectSize::by_scale_and_ratio(
                 &ImageScaling::Preview(self.settings.width),
                 &self.packer.aspect,
             );
-            let size = egui::Vec2::new(
-                self.settings.preview_size.w as f32,
-                self.settings.preview_size.h as f32,
-            );
-            frame.set_window_size(size);
 
             self.to_update = false;
         }
@@ -144,8 +138,8 @@ impl epi::App for P3App {
             true => (w, (w * ratio)),
             false => ((h / ratio), h),
         };
-
-        let fit_rect = Rect::from_two_pos(pos2(0.0, 0.0), pos2(box_w, box_h));
+        self.packer.preview_width = box_w;
+        // let fit_rect = Rect::from_two_pos(pos2(0.0, 0.0), pos2(box_w, box_h));
         // painter.rect_stroke(fit_rect, 0.0, egui::Stroke::new(2.0, Color32::DARK_GRAY));
 
         egui::Area::new("image")
@@ -153,7 +147,7 @@ impl epi::App for P3App {
             .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
             .drag_bounds(screen_rect)
             .show(ctx, |ui| {
-                if let Some((_size, texture)) = self.texture {
+                if let Some(texture) = self.texture {
                     let image_preview =
                         PlotImage::new(texture, Value::new(0.0, 0.0), [box_w, box_h]);
                     let box_frame = Polygon::new(Values::from_values(vec![
@@ -161,7 +155,10 @@ impl epi::App for P3App {
                         Value::new(box_w / 2.0, -box_h / 2.0),
                         Value::new(box_w / 2.0, box_h / 2.0),
                         Value::new(-box_w / 2.0, box_h / 2.0),
-                    ]));
+                    ]))
+                    .color(Color32::DARK_GRAY)
+                    .fill_alpha(0.0);
+
                     ui.add(
                         Plot::new("preview")
                             .polygon(box_frame)
@@ -199,12 +196,12 @@ impl epi::App for P3App {
 
 impl P3App {
     //GUI reaction
-    fn hud(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
+    fn hud(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
         egui::Window::new("Settings")
-            .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
-            .title_bar(false)
+            // .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
+            // .title_bar(false)
             .resizable(false)
-            .collapsible(false)
+            // .collapsible(false)
             // .auto_sized()
             .frame(Frame {
                 margin: Vec2::new(8.0, 8.0),
@@ -265,21 +262,19 @@ impl P3App {
                                     "9 : 16",
                                 )
                                 .clicked()
+                            || ratio
+                                .selectable_value(
+                                    &mut self.packer.aspect,
+                                    AspectRatio::Window(
+                                        ctx.input().screen_rect.max.y
+                                            / ctx.input().screen_rect.max.x,
+                                    ),
+                                    "Window",
+                                )
+                                .clicked()
                         {
                             self.update_packer(&[]);
                             self.to_update = true;
-                        }
-
-                        if ratio
-                            .add(egui::SelectableLabel::new(
-                                self.packer.aspect == AspectRatio::Zero,
-                                "0 : 0",
-                            ))
-                            .clicked()
-                        {
-                            // #[cfg(feature = "persistence")]
-                            // self.save();
-                            frame.quit();
                         }
                     });
                     //RADIO - EXPORT SIZE
@@ -292,8 +287,8 @@ impl P3App {
                         if export_size
                             .selectable_value(
                                 &mut self.packer.scale,
-                                ImageScaling::FitScreen,
-                                "Fit Screen",
+                                ImageScaling::FitScreen(ctx.input().screen_rect()),
+                                "Current",
                             )
                             .clicked()
                             || export_size
@@ -489,22 +484,22 @@ impl P3App {
             self.settings.zip = epi::get_value(storage, "PPP_zip").unwrap_or_default();
         }
     }
-
-    pub fn new(screen_size: RectSize) -> Self {
-        let width = window_width(screen_size, WINDOW_SCALE);
-        P3App {
-            settings: Settings {
-                screen_size,
-                width,
-                ..Default::default()
-            },
-            packer: Packer::new(width, AspectRatio::default(), ImageScaling::default()),
-            texture: None,
-            to_update: false,
-            fader: None,
-        }
-    }
 }
+// pub fn new(screen_size: RectSize) -> Self {
+//     let width = window_width(screen_size, WINDOW_SCALE);
+//     P3App {
+//         settings: Settings {
+//             screen_size,
+//             width,
+//             ..Default::default()
+//         },
+//         packer: Packer::new(width, AspectRatio::default(), ImageScaling::default()),
+//         texture: None,
+//         to_update: false,
+//         fader: None,
+//     }
+// }
+// }
 
 // async fn open_dialog(def: &Path) -> Option<PathBuf> {
 //     let dialog = rfd::AsyncFileDialog::new()
