@@ -281,6 +281,7 @@ impl P3App {
                                     ),
                                     "Window",
                                 )
+                                .on_hover_text("Get aspect ratio of window..\nShortcut: [Space]")
                                 .clicked()
                         {
                             self.update_packer(&[]);
@@ -386,7 +387,19 @@ impl P3App {
                         buttons.separator();
                         if buttons
                             .button("Export Result")
-                            .on_hover_text("Save result to file..\nShortcut: [Enter]")
+                            .on_hover_text({
+                                let size = match self.packer.scale {
+                                    ImageScaling::Actual => self.packer.actual_size,
+                                    _ => RectSize::by_scale_and_ratio(
+                                        &self.packer.scale,
+                                        &self.packer.aspect,
+                                    ),
+                                };
+                                format!(
+                                    "Save result to file..\n{} x {}\nShortcut: [Enter]",
+                                    size.w, size.h
+                                )
+                            })
                             .clicked()
                         {
                             self.export();
@@ -455,6 +468,13 @@ impl P3App {
                     pressed: true,
                     ..
                 } => self.export(),
+
+                Event::Key {
+                    key: egui::Key::Space,
+                    pressed: true,
+                    ..
+                } => self.window_ratio(ctx),
+
                 _ => (),
             }
         }
@@ -482,6 +502,12 @@ impl P3App {
         self.packer
             .export(&self.settings.export_path, self.settings.zip);
         self.fader("");
+    }
+    fn window_ratio(&mut self, ctx: &egui::CtxRef) {
+        self.packer.aspect =
+            AspectRatio::Window(ctx.input().screen_rect.max.y / ctx.input().screen_rect.max.x);
+        self.update_packer(&[]);
+        self.to_update = true;
     }
 
     // Load state

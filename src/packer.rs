@@ -23,6 +23,7 @@ pub struct Packer {
     pub aspect: AspectRatio,
     pub scale: ImageScaling,
     pub preview: Option<Preview>,
+    pub actual_size: RectSize,
     pic_placement: Result<(usize, usize, PackedItems<Pic>), ()>,
 }
 impl Default for Packer {
@@ -33,6 +34,7 @@ impl Default for Packer {
             aspect: AspectRatio::Square,
             scale: ImageScaling::default(),
             preview: None,
+            actual_size: RectSize::default(),
             pic_placement: Err(()),
         }
     }
@@ -103,7 +105,7 @@ impl Packer {
                 div = 1.0;
                 image_size = RectSize::new(max_w, max_h);
             }
-
+            self.actual_size = RectSize::new(max_w, max_h);
             let mut combined = RgbaImage::new(image_size.w as u32, image_size.h as u32);
             for item in &packed.2 {
                 if let Ok(image) = image::open(&item.1.file) {
