@@ -138,6 +138,7 @@ impl epi::App for P3App {
             true => (w, (w * ratio)),
             false => ((h / ratio), h),
         };
+
         self.packer.preview_width = box_w;
         // let fit_rect = Rect::from_two_pos(pos2(0.0, 0.0), pos2(box_w, box_h));
         // painter.rect_stroke(fit_rect, 0.0, egui::Stroke::new(2.0, Color32::DARK_GRAY));
@@ -171,7 +172,12 @@ impl epi::App for P3App {
                             .show_x(false)
                             .show_y(false)
                             .show_background(false)
-                            .show_axes([false, false]),
+                            .show_axes([false, false])
+                            .legend(plot::Legend {
+                                text_style: TextStyle::Small,
+                                background_alpha: 0.0,
+                                position: plot::Corner::RightBottom,
+                            }),
                     );
                 }
             });

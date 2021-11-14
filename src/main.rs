@@ -6,7 +6,6 @@ use app::*;
 
 fn main() {
     let start_state = P3App::default();
-
     let options = eframe::NativeOptions {
         always_on_top: false,
         decorated: true,

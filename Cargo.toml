@@ -21,7 +21,6 @@ Drag'n'Drop utility for packing images.
 eframe = {version = "0.15.0", features = ["persistence"] }
 rfd = "0.5.1"
 directories = "4.0.1"
-# native-dialog = "0.5.5"
 image = "0.23.14"
 crunch = "0.3.3"
 winit = "0.25.0"
@@ -29,7 +28,6 @@ chrono = "0.4.19"
 imagesize = "0.9.0"
 serde = "1.0.130"
 zip = "0.5.13"
-futures = "0.3.17"
 
 [profile.release]
 opt-level = 3
