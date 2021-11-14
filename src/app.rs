@@ -171,6 +171,10 @@ impl epi::App for P3App {
                             .view_aspect(1.0 / self.packer.aspect.div())
                             .show_x(false)
                             .show_y(false)
+                            .center_x_axis(true)
+                            .center_x_axis(true)
+                            .allow_drag(false)
+                            .allow_zoom(false)
                             .show_background(false)
                             .show_axes([false, false])
                             .legend(plot::Legend {
