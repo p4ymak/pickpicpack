@@ -361,6 +361,11 @@ impl P3App {
                         }
 
                         buttons.separator();
+
+                        #[cfg(target_os = "macos")]
+                        let button_path =
+                            buttons.add_enabled(false, egui::Button::new("Exports to Pictures"));
+                        #[cfg(not(target_os = "macos"))]
                         let button_path = buttons
                             .button("Set Directory...")
                             .on_hover_text("Where to place resulting image..");
@@ -375,10 +380,8 @@ impl P3App {
                             } else if let Some(path) = rfd::FileDialog::new().pick_folder() {
                                 self.settings.export_path = path;
                             }
-                            // if let Some(path) = block_on(open_dialog(&self.settings.export_path)) {
-                            //     self.settings.export_path = path;
-                            // }
                         }
+
                         buttons.separator();
                         buttons
                             .checkbox(&mut self.settings.zip, "ZIP")
@@ -405,18 +408,19 @@ impl P3App {
                             self.export();
                         };
                     });
-                    // println!("HEADER: {:?}", ui.min_rect());
 
                     ui.separator();
                     ui.vertical_centered(|ui| {
-                        // ui.add(
-                        //     egui::Hyperlink::new("https://github.com/emilk/egui")
-                        //         .text("My favorite repo"),
-                        // );
-                        ui.label(format!(
-                            "PickPicPack v{} by Roman Chumak",
-                            env!("CARGO_PKG_VERSION"),
-                        ));
+                        ui.add(
+                            egui::Hyperlink::new("http://www.p43d.com/pickpicpack").text(
+                                // );
+                                // ui.label(
+                                format!(
+                                    "PickPicPack v{} by Roman Chumak",
+                                    env!("CARGO_PKG_VERSION"),
+                                ),
+                            ),
+                        );
                     });
                 })
             });
@@ -431,12 +435,6 @@ impl P3App {
     }
 
     fn detect_files_being_dropped(&mut self, ctx: &egui::CtxRef) {
-        // Preview hvering files:
-        // for file in &ctx.input().raw.hovered_files {
-        //     println!("{:?}", file.mime);
-        // }
-
-        // Collect dropped files:
         if !ctx.input().raw.dropped_files.is_empty() {
             self.fader("packing");
             ctx.request_repaint();
@@ -445,9 +443,11 @@ impl P3App {
             self.to_update = true;
         }
     }
+
     fn update_packer(&mut self, files: &[DroppedFile]) {
         self.packer.update(files);
     }
+
     fn handle_keys(&mut self, ctx: &egui::CtxRef) {
         for event in &ctx.input().raw.events {
             match event {
@@ -456,31 +456,27 @@ impl P3App {
                     pressed: false,
                     ..
                 } => self.undo(),
-
                 Event::Key {
                     key: egui::Key::Escape,
                     pressed: true,
                     ..
                 } => self.clear(),
-
                 Event::Key {
                     key: egui::Key::Enter,
                     pressed: true,
                     ..
                 } => self.export(),
-
                 Event::Key {
                     key: egui::Key::Space,
                     pressed: true,
                     ..
                 } => self.window_ratio(ctx),
-
                 _ => (),
             }
         }
     }
 
-    // Key Functions
+    // Shortcut Functions
     fn clear(&mut self) {
         self.fader("clear");
         self.packer = Packer::new(self.settings.width, self.packer.aspect, self.packer.scale);
@@ -521,27 +517,3 @@ impl P3App {
         }
     }
 }
-// pub fn new(screen_size: RectSize) -> Self {
-//     let width = window_width(screen_size, WINDOW_SCALE);
-//     P3App {
-//         settings: Settings {
-//             screen_size,
-//             width,
-//             ..Default::default()
-//         },
-//         packer: Packer::new(width, AspectRatio::default(), ImageScaling::default()),
-//         texture: None,
-//         to_update: false,
-//         fader: None,
-//     }
-// }
-// }
-
-// async fn open_dialog(def: &Path) -> Option<PathBuf> {
-//     let dialog = rfd::AsyncFileDialog::new()
-//         .set_directory(def)
-//         .pick_folder()
-//         .await;
-
-//     dialog.map(|d| d.path().to_owned())
-// }

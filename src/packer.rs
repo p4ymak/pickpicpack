@@ -66,10 +66,6 @@ impl Packer {
     }
 
     fn add_items(&mut self, new_items: Vec<Item<Pic>>) {
-        // for item in &new_items {
-        //     self.area_min += item.w * item.h;
-        // }
-
         self.items.push(new_items);
     }
 
