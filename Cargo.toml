@@ -14,7 +14,7 @@ copyright = "Copyright (c) Roman Chumak 2021. All rights reserved."
 category = "Graphics and Design"
 short_description = "Packing multiple images to one."
 long_decription = """
-Drag'n'Drop utility for packing images.
+Tiny yet powerful utility for packaging multiple images to new one with custom aspect ratio and size.
 """
 
 [dependencies]
