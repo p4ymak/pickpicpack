@@ -32,8 +32,6 @@ impl Default for Settings {
 }
 
 #[derive(Default)]
-// #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
-// #[cfg_attr(feature = "persistence", serde(default))] // if we add new fields, give them default values when deserializing old state
 pub struct P3App {
     settings: Settings,
     packer: Packer,
@@ -185,15 +183,6 @@ impl epi::App for P3App {
                     );
                 }
             });
-        // if self.packer.items.is_empty() {
-        //     painter.text(
-        //         Pos2::new(screen_rect.max.x / 2.0, screen_rect.max.y / 2.0),
-        //         Align2::CENTER_CENTER,
-        //         "DROP HERE",
-        //         TextStyle::Heading,
-        //         Color32::DARK_GRAY,
-        //     );
-        // }
         //Draw GUI if mouse hovered window
         if self.packer.items.is_empty() || ctx.input().pointer.has_pointer() {
             self.hud(ctx, frame);
@@ -207,8 +196,8 @@ impl epi::App for P3App {
 impl P3App {
     //GUI reaction
     fn hud(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
-        egui::Window::new("Settings")
-            // .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
+        egui::Window::new("Menu")
+            .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
             // .title_bar(false)
             .resizable(false)
             // .collapsible(false)
@@ -301,6 +290,7 @@ impl P3App {
                                 ImageScaling::FitScreen(ctx.input().screen_rect()),
                                 "Current",
                             )
+                            .on_hover_text("Scale exported image to fit window.")
                             .clicked()
                             || export_size
                                 .selectable_value(
@@ -336,6 +326,7 @@ impl P3App {
                                     ImageScaling::Actual,
                                     "Actual",
                                 )
+                                .on_hover_text("Keep opriginal images size.")
                                 .clicked()
                         {
                             // self.to_update = true;
