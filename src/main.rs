@@ -22,7 +22,7 @@ fn main() {
         resizable: true,
         maximized: false,
         drag_and_drop_support: true,
-        transparent: false,
+        transparent: true,
         icon_data: Some(icon),
         ..Default::default()
     };
