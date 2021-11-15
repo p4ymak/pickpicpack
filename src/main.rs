@@ -11,7 +11,6 @@ fn main() {
         rgba: image::open("./icon/128x128@2x.png")
             .unwrap()
             .to_rgba8()
-            // .pixels()
             .to_vec(),
         width: 256,
         height: 256,
