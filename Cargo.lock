@@ -1499,7 +1499,6 @@ dependencies = [
  "imagesize",
  "rfd",
  "serde",
- "winit",
  "zip",
 ]
 

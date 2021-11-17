@@ -5,11 +5,8 @@ use eframe::{egui, epi};
 use egui::*;
 use epi::Storage;
 use plot::{Plot, PlotImage, Polygon, Value, Values};
-// use futures::executor::block_on;
-// use native_dialog::FileDialog;
 use std::path::PathBuf;
 
-// FRAMING_STYLE: egui::containers::Frame = ;
 
 #[derive(Debug)]
 struct Settings {
