@@ -1,14 +1,19 @@
+use super::utils::random_gray;
 use crunch::{Item, Rotation};
 use eframe::egui::DroppedFile;
-use imagesize::size;
+use image::{io::Reader, ImageResult};
 use std::fs;
 use std::path::{Path, PathBuf};
-
 #[derive(Clone)]
 pub struct Pic {
     pub file: PathBuf,
     pub width: u32,
     pub height: u32,
+    pub color: image::Rgba<u8>,
+}
+
+fn get_dimensions(path: &Path) -> ImageResult<(u32, u32)> {
+    Reader::open(path)?.with_guessed_format()?.into_dimensions()
 }
 
 pub fn get_all_files(path: &Path) -> Vec<PathBuf> {
@@ -36,17 +41,20 @@ pub fn load_new_items(dropped_items: &[DroppedFile]) -> Vec<Item<Pic>> {
         }
     }
     for file in all_files {
-        if let Ok(dimensions) = size(&file) {
-            new_items.push(Item::new(
-                Pic {
-                    file: file.to_owned(),
-                    width: dimensions.width as u32,
-                    height: dimensions.height as u32,
-                },
-                dimensions.width,
-                dimensions.height,
-                Rotation::None,
-            ));
+        if let Ok(dimensions) = get_dimensions(&file) {
+            if dimensions.0 > 0 && dimensions.1 > 0 {
+                new_items.push(Item::new(
+                    Pic {
+                        file: file.to_owned(),
+                        width: dimensions.0,
+                        height: dimensions.1,
+                        color: random_gray(),
+                    },
+                    dimensions.0 as usize,
+                    dimensions.1 as usize,
+                    Rotation::None,
+                ));
+            }
         }
     }
     new_items

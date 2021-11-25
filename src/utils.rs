@@ -1,12 +1,14 @@
 use chrono::Local;
 use directories::UserDirs;
 use eframe::egui::Rect;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use zip::{result::ZipResult, ZipWriter};
 use zip::{write::FileOptions, CompressionMethod};
+
 pub const OUTPUT_NAME: &str = "PickPicPack";
 
 pub fn file_timestamp() -> String {
@@ -24,6 +26,13 @@ pub fn default_path() -> PathBuf {
     } else {
         PathBuf::default()
     }
+}
+
+pub fn random_gray() -> image::Rgba<u8> {
+    let mut rng = rand::thread_rng();
+    let r: u8 = rng.gen_range(60..200);
+    //image::Rgba::<u8>::from([rng.gen(), rng.gen(), rng.gen(), 255])
+    image::Rgba::<u8>::from([r, r / 4, 0, 128])
 }
 
 #[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]

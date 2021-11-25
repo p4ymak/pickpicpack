@@ -4,9 +4,9 @@ use core::time::Duration;
 use eframe::{egui, epi};
 use egui::*;
 use epi::Storage;
+use image::RgbaImage;
 use plot::{Plot, PlotImage, Polygon, Value, Values};
 use std::path::PathBuf;
-
 
 #[derive(Debug)]
 struct Settings {
@@ -29,11 +29,42 @@ impl Default for Settings {
 }
 
 #[derive(Default)]
+struct Counter {
+    recent: isize,
+    total: isize,
+}
+impl Counter {
+    fn reset(&mut self) {
+        self.recent = -1;
+        self.total = -1;
+    }
+    fn renew(&mut self, num: usize) {
+        self.recent = -1;
+        self.total = num as isize;
+    }
+    fn update(&mut self) -> Option<isize> {
+        if self.total == -1 {
+            self.total = 0;
+            return Some(0);
+        }
+        if self.recent >= self.total {
+            None
+        } else {
+            self.recent += 1;
+            Some(self.recent)
+        }
+    }
+    fn not_finished(&self) -> bool {
+        self.recent < self.total
+    }
+}
+
+#[derive(Default)]
 pub struct P3App {
     settings: Settings,
     packer: Packer,
     texture: Option<egui::TextureId>,
-    to_update: bool,
+    counter: Counter,
     fader: Option<String>,
 }
 
@@ -56,7 +87,7 @@ impl epi::App for P3App {
     fn setup(
         &mut self,
         _ctx: &egui::CtxRef,
-        _frame: &mut epi::Frame<'_>,
+        frame: &mut epi::Frame<'_>,
         storage: Option<&dyn Storage>,
     ) {
         self.packer = Packer::new(
@@ -66,7 +97,13 @@ impl epi::App for P3App {
         );
         self.load(storage);
         self.packer.update(&[]);
-        self.to_update = true;
+        self.counter.reset();
+
+        // Allocate new texture:
+        self.settings.preview_size = RectSize::by_scale_and_ratio(
+            &ImageScaling::Preview(self.settings.width),
+            &self.packer.aspect,
+        );
     }
 
     fn save(&mut self, storage: &mut dyn epi::Storage) {
@@ -77,54 +114,15 @@ impl epi::App for P3App {
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
-        // if let Some(message) = &self.fader {
-        //     let painter = ctx.layer_painter(LayerId::new(Order::Foreground, Id::new("fader")));
-        //     let screen_rect = ctx.input().screen_rect();
-        //     painter.rect_filled(screen_rect, 0.0, Color32::from_black_alpha(192));
-        //     painter.text(
-        //         screen_rect.center(),
-        //         Align2::CENTER_CENTER,
-        //         message,
-        //         TextStyle::Heading,
-        //         Color32::WHITE,
-        //     );
-        // }
-        if self.to_update {
-            // self.fader = None;
-            if let Some(texture) = self.texture {
-                frame.tex_allocator().free(texture);
-            }
-            if let Some(preview) = &self.packer.preview {
-                // Allocate a texture:
-                let texture = frame
-                    .tex_allocator()
-                    .alloc_srgba_premultiplied((preview.size.w, preview.size.h), &preview.pixels);
-                self.texture = Some(texture);
-            }
-
+        if let Some(id) = self.counter.update() {
+            self.packer.combine_thumbnails(id);
+            // println!("Counter: {}/{}", self.counter.recent, self.counter.total);
+            self.allocate_texure(frame);
             self.settings.preview_size = RectSize::by_scale_and_ratio(
                 &ImageScaling::Preview(self.settings.width),
                 &self.packer.aspect,
             );
-
-            self.to_update = false;
         }
-
-        //Draw Image
-        // egui::Area::new("image")
-        //     .order(Order::Background)
-        //     .show(ctx, |ui| {
-        //         if let Some((size, texture)) = self.texture {
-        //             // if ui
-        //             //     .add(egui::Image::new(texture, size).sense(Sense::drag()))
-        //             //     .dragged()
-        //             // {
-        //             //     frame.drag_window();
-        //             // }
-        //         }
-        //     });
-
-        // let painter = ctx.layer_painter(LayerId::new(Order::Background, Id::new("box")));
         let screen_rect = ctx.input().screen_rect();
         let w = screen_rect.max.x;
         let h = screen_rect.max.y;
@@ -133,10 +131,7 @@ impl epi::App for P3App {
             true => (w, (w * ratio)),
             false => ((h / ratio), h),
         };
-
         self.packer.preview_width = box_w;
-        // let fit_rect = Rect::from_two_pos(pos2(0.0, 0.0), pos2(box_w, box_h));
-        // painter.rect_stroke(fit_rect, 0.0, egui::Stroke::new(2.0, Color32::DARK_GRAY));
 
         egui::Area::new("image")
             .order(Order::Background)
@@ -187,10 +182,45 @@ impl epi::App for P3App {
 
         self.detect_files_being_dropped(ctx);
         self.handle_keys(ctx);
+
+        if self.counter.not_finished() {
+            ctx.request_repaint();
+        }
     }
 }
 
 impl P3App {
+    fn allocate_texure(&mut self, frame: &mut epi::Frame<'_>) {
+        if let Some(texture) = self.texture {
+            frame.tex_allocator().free(texture);
+        }
+        let pixels: Vec<Color32> = self
+            .packer
+            .preview
+            .pixels()
+            .map(|p| Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
+            .collect();
+
+        let texture = frame.tex_allocator().alloc_srgba_premultiplied(
+            (
+                self.packer.preview.width() as usize,
+                self.packer.preview.height() as usize,
+            ),
+            &pixels,
+        );
+        self.texture = Some(texture);
+    }
+
+    // fn reload(&mut self, ctx: &egui::CtxRef) {
+    //     if self.to_reload {
+    //         ctx.request_repaint();
+    //         let unused = ctx.end_frame();
+    //         drop(unused);
+    //         // self.packer.preview(true);
+    //         self.to_reload = false;
+    //         self.to_update = true;
+    //     }
+    // }
     //GUI reaction
     fn hud(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
         egui::Window::new("Menu")
@@ -271,7 +301,6 @@ impl P3App {
                                 .clicked()
                         {
                             self.update_packer(&[]);
-                            self.to_update = true;
                         }
                     });
                     //RADIO - EXPORT SIZE
@@ -425,15 +454,13 @@ impl P3App {
     fn detect_files_being_dropped(&mut self, ctx: &egui::CtxRef) {
         if !ctx.input().raw.dropped_files.is_empty() {
             self.fader("packing");
-            ctx.request_repaint();
             self.update_packer(&ctx.input().raw.dropped_files);
             self.fader("");
-            self.to_update = true;
         }
     }
 
     fn update_packer(&mut self, files: &[DroppedFile]) {
-        self.packer.update(files);
+        self.counter.renew(self.packer.update(files));
     }
 
     fn handle_keys(&mut self, ctx: &egui::CtxRef) {
@@ -469,17 +496,17 @@ impl P3App {
         self.fader("clear");
         self.packer = Packer::new(self.settings.width, self.packer.aspect, self.packer.scale);
         self.fader("");
-        self.to_update = true;
+        self.counter.reset();
     }
     fn undo(&mut self) {
         self.fader("undo");
         if self.packer.items.len() <= 1 {
             self.clear();
+            self.counter.reset();
         } else {
-            self.packer.undo();
+            self.counter.renew(self.packer.undo());
         }
         self.fader("");
-        self.to_update = true;
     }
     fn export(&mut self) {
         self.fader("exporting");
@@ -491,7 +518,6 @@ impl P3App {
         self.packer.aspect =
             AspectRatio::Window(ctx.input().screen_rect.max.y / ctx.input().screen_rect.max.x);
         self.update_packer(&[]);
-        self.to_update = true;
     }
 
     // Load state
