@@ -3,7 +3,6 @@
 mod app;
 mod loader;
 mod packer;
-mod painter;
 mod utils;
 use app::*;
 

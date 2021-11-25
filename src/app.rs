@@ -54,8 +54,8 @@ impl Counter {
             Some(self.recent)
         }
     }
-    fn not_finished(&self) -> bool {
-        self.recent < self.total
+    fn finished(&self) -> bool {
+        self.recent >= self.total
     }
 }
 
@@ -87,7 +87,7 @@ impl epi::App for P3App {
     fn setup(
         &mut self,
         _ctx: &egui::CtxRef,
-        frame: &mut epi::Frame<'_>,
+        _frame: &mut epi::Frame<'_>,
         storage: Option<&dyn Storage>,
     ) {
         self.packer = Packer::new(
@@ -99,7 +99,6 @@ impl epi::App for P3App {
         self.packer.update(&[]);
         self.counter.reset();
 
-        // Allocate new texture:
         self.settings.preview_size = RectSize::by_scale_and_ratio(
             &ImageScaling::Preview(self.settings.width),
             &self.packer.aspect,
@@ -108,6 +107,7 @@ impl epi::App for P3App {
 
     fn save(&mut self, storage: &mut dyn epi::Storage) {
         epi::set_value(storage, "PPP_scale", &self.packer.scale);
+        epi::set_value(storage, "PPP_equal", &self.packer.equal);
         epi::set_value(storage, "PPP_ratio", &self.packer.aspect);
         epi::set_value(storage, "PPP_export_path", &self.settings.export_path);
         epi::set_value(storage, "PPP_zip", &self.settings.zip);
@@ -116,7 +116,6 @@ impl epi::App for P3App {
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
         if let Some(id) = self.counter.update() {
             self.packer.combine_thumbnails(id);
-            // println!("Counter: {}/{}", self.counter.recent, self.counter.total);
             self.allocate_texure(frame);
             self.settings.preview_size = RectSize::by_scale_and_ratio(
                 &ImageScaling::Preview(self.settings.width),
@@ -139,6 +138,14 @@ impl epi::App for P3App {
             .drag_bounds(screen_rect)
             .show(ctx, |ui| {
                 if let Some(texture) = self.texture {
+                    // let box_bg = Polygon::new(Values::from_values(vec![
+                    //     Value::new(-box_w / 2.0, -box_h / 2.0),
+                    //     Value::new(box_w / 2.0, -box_h / 2.0),
+                    //     Value::new(box_w / 2.0, box_h / 2.0),
+                    //     Value::new(-box_w / 2.0, box_h / 2.0),
+                    // ]))
+                    // .color(self.packer.bg_color)
+                    // .fill_alpha(self.packer.bg_color.a() as f32 / 255.0);
                     let image_preview =
                         PlotImage::new(texture, Value::new(0.0, 0.0), [box_w, box_h]);
                     let box_frame = Polygon::new(Values::from_values(vec![
@@ -152,6 +159,7 @@ impl epi::App for P3App {
 
                     ui.add(
                         Plot::new("preview")
+                            // .polygon(box_bg)
                             .polygon(box_frame)
                             .image(image_preview)
                             .width(screen_rect.max.x)
@@ -183,7 +191,7 @@ impl epi::App for P3App {
         self.detect_files_being_dropped(ctx);
         self.handle_keys(ctx);
 
-        if self.counter.not_finished() {
+        if !self.counter.finished() {
             ctx.request_repaint();
         }
     }
@@ -194,12 +202,20 @@ impl P3App {
         if let Some(texture) = self.texture {
             frame.tex_allocator().free(texture);
         }
-        let pixels: Vec<Color32> = self
+        // let preview = match self.counter.finished() {
+        //     false => image::imageops::thumbnail(
+        //         &self.packer.preview,
+        //         self.packer.preview.width() / 10,
+        //         self.packer.preview.height() / 10,
+        //     ),
+        //     true => self.packer.preview.to_owned(),
+        // };
+        let pixels = self
             .packer
             .preview
             .pixels()
             .map(|p| Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
-            .collect();
+            .collect::<Vec<Color32>>();
 
         let texture = frame.tex_allocator().alloc_srgba_premultiplied(
             (
@@ -211,16 +227,6 @@ impl P3App {
         self.texture = Some(texture);
     }
 
-    // fn reload(&mut self, ctx: &egui::CtxRef) {
-    //     if self.to_reload {
-    //         ctx.request_repaint();
-    //         let unused = ctx.end_frame();
-    //         drop(unused);
-    //         // self.packer.preview(true);
-    //         self.to_reload = false;
-    //         self.to_update = true;
-    //     }
-    // }
     //GUI reaction
     fn hud(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
         egui::Window::new("Menu")
@@ -241,7 +247,7 @@ impl P3App {
                     //RADIO - SET RATIO
                     ui.horizontal(|ratio| {
                         let tooltip_ratio =
-                            "Aspect ratio of packaging area. Updates package on change..";
+                            "Aspect ratio of packaging area.\nUpdates package on change..";
                         ratio.label("Ratio:").on_hover_text(tooltip_ratio);
                         if ratio
                             .selectable_value(&mut self.packer.aspect, AspectRatio::Square, "1 : 1")
@@ -302,6 +308,51 @@ impl P3App {
                         {
                             self.update_packer(&[]);
                         }
+                    });
+                    //Thumbnails scaling options
+                    ui.separator();
+                    ui.horizontal(|scaling| {
+                        let tooltip_scale =
+                            "Scaling options for each image..\nUpdates package on change..";
+                        scaling.label("Scale:").on_hover_text(tooltip_scale);
+                        if scaling
+                            .checkbox(&mut self.packer.equal, "Equal")
+                            .on_hover_text("Scale images to equal size..")
+                            .clicked()
+                        {
+                            self.update_packer(&[]);
+                        };
+                        scaling.separator();
+
+                        let tooltip_margin = "Space between images..\nUpdates package on change..";
+                        scaling.label("Margin:").on_hover_text(tooltip_margin);
+                        let zero = match self.packer.margin {
+                            0 => scaling.add_enabled(false, Button::new("0")),
+                            _ => scaling.add_enabled(true, Button::new("0")),
+                        };
+                        if zero.clicked() {
+                            self.packer.margin = 0;
+                            self.update_packer(&[]);
+                        }
+                        let minus = match self.packer.margin {
+                            0 => scaling.add_enabled(false, Button::new("-")),
+                            _ => scaling.add_enabled(true, Button::new("-")),
+                        };
+                        if minus.clicked() {
+                            self.packer.margin = match self.packer.margin {
+                                1 => 0,
+                                x => x / 2,
+                            };
+                            self.update_packer(&[]);
+                        }
+                        if scaling.button("+").clicked() {
+                            self.packer.margin = match self.packer.margin {
+                                0 => 1,
+                                x => x * 2,
+                            };
+                            self.update_packer(&[]);
+                        }
+                        // scaling.color_edit_button_srgba(&mut self.packer.bg_color);
                     });
                     //RADIO - EXPORT SIZE
                     ui.separator();
@@ -524,6 +575,7 @@ impl P3App {
     fn load(&mut self, storage: Option<&dyn epi::Storage>) {
         if let Some(storage) = storage {
             self.packer.scale = epi::get_value(storage, "PPP_scale").unwrap_or_default();
+            self.packer.equal = epi::get_value(storage, "PPP_equal").unwrap_or_default();
             self.packer.aspect = epi::get_value(storage, "PPP_ratio").unwrap_or_default();
             self.settings.export_path =
                 epi::get_value(storage, "PPP_export_path").unwrap_or_else(default_path);

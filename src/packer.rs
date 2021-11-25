@@ -1,6 +1,6 @@
 use super::loader::{load_new_items, Pic};
 use super::utils::*;
-use crunch::{pack, Item, PackedItems, Rect};
+use crunch::{pack, Item, PackedItems, Rect, Rotation};
 use eframe::egui::{Color32, DroppedFile};
 use image::imageops::{replace, resize, thumbnail, FilterType};
 use image::RgbaImage;
@@ -19,15 +19,24 @@ use std::path::{Path, PathBuf};
 //     Preview(RectSize, usize),
 //     Export(RectSize),
 // }
+struct PackingResult {
+    total_w: usize,
+    max_w: usize,
+    max_h: usize,
+    positions: Vec<(Rect, Pic)>,
+}
 
 pub struct Packer {
     pub items: Vec<Vec<Item<Pic>>>,
     pub preview_width: f32,
     pub aspect: AspectRatio,
+    pub equal: bool,
+    pub margin: usize,
     pub scale: ImageScaling,
     pub preview: RgbaImage,
     pub actual_size: RectSize,
-    pic_placement: Result<(usize, usize, PackedItems<Pic>), ()>,
+    // pub bg_color: Color32,
+    packing_result: Option<PackingResult>,
 }
 impl Default for Packer {
     fn default() -> Self {
@@ -35,10 +44,13 @@ impl Default for Packer {
             items: Vec::<Vec<Item<Pic>>>::new(),
             preview_width: f32::default(),
             aspect: AspectRatio::Square,
+            equal: false,
+            margin: 0,
             scale: ImageScaling::default(),
             preview: RgbaImage::new(1, 1),
             actual_size: RectSize::default(),
-            pic_placement: Err(()),
+            // bg_color: Color32::TRANSPARENT,
+            packing_result: None,
         }
     }
 }
@@ -76,12 +88,76 @@ impl Packer {
 
     fn pack(&mut self) -> usize {
         if !self.items.is_empty() {
-            let items_flat: Vec<Item<Pic>> = self.items.clone().into_iter().flatten().collect();
+            let items_flat: Vec<Item<Pic>> = match self.equal {
+                true => self
+                    .items
+                    .clone()
+                    .into_iter()
+                    .flatten()
+                    .map(|item| {
+                        Item::new(
+                            Pic {
+                                file: item.data.file,
+                                width: item.data.avg_width,
+                                height: item.data.avg_height,
+                                color: item.data.color,
+                                avg_width: item.data.avg_width,
+                                avg_height: item.data.avg_height,
+                            },
+                            item.data.avg_width as usize + self.margin,
+                            item.data.avg_height as usize + self.margin,
+                            Rotation::None,
+                        )
+                    })
+                    .collect(),
+                false => self
+                    .items
+                    .clone()
+                    .into_iter()
+                    .flatten()
+                    .map(|item| {
+                        Item::new(
+                            Pic {
+                                file: item.data.file,
+                                width: item.data.width,
+                                height: item.data.height,
+                                color: item.data.color,
+                                avg_width: item.data.avg_width,
+                                avg_height: item.data.avg_height,
+                            },
+                            item.data.width as usize + self.margin,
+                            item.data.height as usize + self.margin,
+                            Rotation::None,
+                        )
+                    })
+                    .collect(),
+            };
 
             let width = (items_flat.iter().map(|r| r.w * r.h).sum::<usize>() as f32
                 / self.aspect.div())
             .sqrt();
-            self.pic_placement = pack_to_ratio(&items_flat, self.aspect.div(), width, width, 1);
+            let pic_placement = pack_to_ratio(&items_flat, self.aspect.div(), width, width, 1);
+
+            if let Ok(packed) = pic_placement {
+                let total_w = packed.0;
+                let mut max_w = 0;
+                let mut max_h = 0;
+                let mut positions = Vec::<(Rect, Pic)>::new();
+                for item in packed.2 {
+                    max_w = max_w.max(item.0.w + item.0.x);
+                    max_h = max_h.max(item.0.h + item.0.y);
+                    positions.push(item);
+                }
+                self.packing_result = Some(PackingResult {
+                    total_w,
+                    max_w,
+                    max_h,
+                    positions,
+                });
+            } else {
+                self.packing_result = None
+            }
+
             return items_flat.len();
         }
         0
@@ -99,24 +175,18 @@ impl Packer {
             },
         };
 
-        if let Ok(packed) = &self.pic_placement {
-            let mut max_w = 0;
-            let mut max_h = 0;
-            for item in &packed.2 {
-                max_w = max_w.max(item.0.w + item.0.x);
-                max_h = max_h.max(item.0.h + item.0.y);
-            }
-            let crop = (max_w as f32)
-                .max(max_h as f32 / self.aspect.div())
-                .min(packed.0 as f32);
-            let div = image_size.w as f32 / crop;
+        if let Some(packed) = &self.packing_result {
+            let crop = (packed.max_w as f32)
+                .max(packed.max_h as f32 / self.aspect.div())
+                .min(packed.total_w as f32);
+            let div = (image_size.w) as f32 / crop;
 
-            self.actual_size = RectSize::new(max_w, max_h);
+            self.actual_size = RectSize::new(packed.max_w, packed.max_h);
 
             if loaded == 0 {
                 //Create Layout Preview
                 self.preview = RgbaImage::new(image_size.w as u32, image_size.h as u32);
-                for item in &packed.2 {
+                for item in &packed.positions {
                     let color_box = RgbaImage::from_pixel(
                         (item.1.width as f32 * div).floor() as u32,
                         (item.1.height as f32 * div).floor() as u32,
@@ -124,30 +194,26 @@ impl Packer {
                     );
                     let loc = item.0;
                     let (dx, dy) = (
-                        (loc.x as f32 * div).floor() as u32,
-                        (loc.y as f32 * div).floor() as u32,
+                        ((loc.x + self.margin / 2) as f32 * div).floor() as u32,
+                        ((loc.y + self.margin / 2) as f32 * div).floor() as u32,
                     );
                     replace(&mut self.preview, &color_box, dx, dy);
                 }
             } else {
                 //Update Layout Preview with new loaded image
-                let mut id = 0;
-                for item in &packed.2 {
-                    id += 1;
-                    if id == loaded {
-                        if let Ok(image) = image::open(&item.1.file) {
-                            let thumbnail = thumbnail(
-                                &image,
-                                (item.1.width as f32 * div).floor() as u32,
-                                (item.1.height as f32 * div).floor() as u32,
-                            );
-                            let loc = item.0;
-                            let (dx, dy) = (
-                                (loc.x as f32 * div).floor() as u32,
-                                (loc.y as f32 * div).floor() as u32,
-                            );
-                            replace(&mut self.preview, &thumbnail, dx, dy);
-                        }
+                if let Some(item) = &packed.positions.get((loaded - 1) as usize) {
+                    if let Ok(image) = image::open(&item.1.file) {
+                        let thumbnail = thumbnail(
+                            &image,
+                            (item.1.width as f32 * div).floor() as u32,
+                            (item.1.height as f32 * div).floor() as u32,
+                        );
+                        let loc = item.0;
+                        let (dx, dy) = (
+                            ((loc.x + self.margin / 2) as f32 * div).floor() as u32,
+                            ((loc.y + self.margin / 2) as f32 * div).floor() as u32,
+                        );
+                        replace(&mut self.preview, &thumbnail, dx, dy);
                     }
                 }
             }
