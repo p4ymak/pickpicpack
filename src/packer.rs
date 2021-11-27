@@ -55,11 +55,12 @@ impl Default for Packer {
     }
 }
 impl Packer {
-    pub fn new(preview_width: f32, aspect: AspectRatio, scale: ImageScaling) -> Self {
+    pub fn new(preview_width: f32, aspect: AspectRatio, scale: ImageScaling, equal: bool) -> Self {
         Packer {
             preview_width,
             aspect,
             scale,
+            equal,
             ..Default::default()
         }
     }
@@ -88,6 +89,17 @@ impl Packer {
 
     fn pack(&mut self) -> usize {
         if !self.items.is_empty() {
+            let mean_max_dim = match self.equal {
+                true => {
+                    self.items
+                        .iter()
+                        .flatten()
+                        .map(|item| item.data.width.max(item.data.height))
+                        .sum::<u32>()
+                        / (self.items.iter().map(|v| v.len()).sum::<usize>() as u32)
+                }
+                false => 0,
+            };
             let items_flat: Vec<Item<Pic>> = match self.equal {
                 true => self
                     .items
@@ -95,17 +107,17 @@ impl Packer {
                     .into_iter()
                     .flatten()
                     .map(|item| {
+                        let new_dims =
+                            fit_to_square(item.data.width, item.data.height, mean_max_dim);
                         Item::new(
                             Pic {
                                 file: item.data.file,
-                                width: item.data.avg_width,
-                                height: item.data.avg_height,
+                                width: new_dims.0,
+                                height: new_dims.1,
                                 color: item.data.color,
-                                avg_width: item.data.avg_width,
-                                avg_height: item.data.avg_height,
                             },
-                            item.data.avg_width as usize + self.margin,
-                            item.data.avg_height as usize + self.margin,
+                            new_dims.0 as usize + self.margin,
+                            new_dims.1 as usize + self.margin,
                             Rotation::None,
                         )
                     })
@@ -122,8 +134,6 @@ impl Packer {
                                 width: item.data.width,
                                 height: item.data.height,
                                 color: item.data.color,
-                                avg_width: item.data.avg_width,
-                                avg_height: item.data.avg_height,
                             },
                             item.data.width as usize + self.margin,
                             item.data.height as usize + self.margin,

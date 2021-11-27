@@ -128,6 +128,16 @@ impl RectSize {
     }
 }
 
+pub fn fit_to_square(width: u32, height: u32, side: u32) -> (u32, u32) {
+    let side = side as f32;
+    let ratio = height as f32 / width as f32;
+    let (avg_width, avg_height) = match ratio <= 1.0 {
+        true => (side, (side * ratio)),
+        false => ((side / ratio), side),
+    };
+    (avg_width as u32, avg_height as u32)
+}
+
 pub fn archive_files(files: Vec<&PathBuf>, path: PathBuf) -> ZipResult<()> {
     let zip_file = File::create(&path)?;
     let mut zip = ZipWriter::new(zip_file);

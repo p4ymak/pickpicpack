@@ -4,7 +4,7 @@ use core::time::Duration;
 use eframe::{egui, epi};
 use egui::*;
 use epi::Storage;
-use image::RgbaImage;
+// use image::RgbaImage;
 use plot::{Plot, PlotImage, Polygon, Value, Values};
 use std::path::PathBuf;
 
@@ -94,6 +94,7 @@ impl epi::App for P3App {
             self.settings.width,
             AspectRatio::default(),
             ImageScaling::default(),
+            false,
         );
         self.load(storage);
         self.packer.update(&[]);
@@ -352,7 +353,11 @@ impl P3App {
                             };
                             self.update_packer(&[]);
                         }
-                        // scaling.color_edit_button_srgba(&mut self.packer.bg_color);
+
+                        scaling.separator();
+
+                        let tooltip_margin = "Load images to RAM..\nFaster operations, but you might not have enough RAM..";
+                        scaling.label("RAM:").on_hover_text(tooltip_margin);
                     });
                     //RADIO - EXPORT SIZE
                     ui.separator();
@@ -545,7 +550,12 @@ impl P3App {
     // Shortcut Functions
     fn clear(&mut self) {
         self.fader("clear");
-        self.packer = Packer::new(self.settings.width, self.packer.aspect, self.packer.scale);
+        self.packer = Packer::new(
+            self.settings.width,
+            self.packer.aspect,
+            self.packer.scale,
+            self.packer.equal,
+        );
         self.fader("");
         self.counter.reset();
     }
