@@ -356,8 +356,13 @@ impl P3App {
 
                         scaling.separator();
 
-                        let tooltip_margin = "Load images to RAM..\nFaster operations, but you might not have enough RAM..";
-                        scaling.label("RAM:").on_hover_text(tooltip_margin);
+                        let tooltip_margin = "Total packed images..";
+                        scaling
+                            .label(format!(
+                                "Loaded: {} / {}",
+                                self.counter.recent, self.counter.total
+                            ))
+                            .on_hover_text(tooltip_margin);
                     });
                     //RADIO - EXPORT SIZE
                     ui.separator();
@@ -461,25 +466,29 @@ impl P3App {
                             .on_hover_text("Also pack all source images to archive..");
 
                         buttons.separator();
-                        if buttons
-                            .button("Export Result")
-                            .on_hover_text({
-                                let size = match self.packer.scale {
-                                    ImageScaling::Actual => self.packer.actual_size,
-                                    _ => RectSize::by_scale_and_ratio(
-                                        &self.packer.scale,
-                                        &self.packer.aspect,
-                                    ),
-                                };
-                                format!(
-                                    "Save result to file..\n{} x {}\nShortcut: [Enter]",
-                                    size.w, size.h
-                                )
-                            })
-                            .clicked()
-                        {
-                            self.export();
-                        };
+                        if self.counter.total > 0 {
+                            if buttons
+                                .button("Export Result")
+                                .on_hover_text({
+                                    let size = match self.packer.scale {
+                                        ImageScaling::Actual => self.packer.actual_size,
+                                        _ => RectSize::by_scale_and_ratio(
+                                            &self.packer.scale,
+                                            &self.packer.aspect,
+                                        ),
+                                    };
+                                    format!(
+                                        "Save result to file..\n{} x {}\nShortcut: [Enter]",
+                                        size.w, size.h
+                                    )
+                                })
+                                .clicked()
+                            {
+                                self.export();
+                            };
+                        } else {
+                            buttons.add_enabled(false, Button::new("Export Result"));
+                        }
                     });
 
                     ui.separator();

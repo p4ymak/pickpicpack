@@ -1,24 +1,12 @@
 use super::loader::{load_new_items, Pic};
 use super::utils::*;
 use crunch::{pack, Item, PackedItems, Rect, Rotation};
-use eframe::egui::{Color32, DroppedFile};
+use eframe::egui::DroppedFile;
 use image::imageops::{replace, resize, thumbnail, FilterType};
-use image::RgbaImage;
+use image::{DynamicImage, ImageResult, RgbaImage};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-// #[derive(Debug)]
-
-// fn to_vec(&self) -> Vec<Color32> {
-//     self
-//         .pixels()
-//         .map(|p| Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
-//         .collect()
-
-// enum CombineTask {
-//     Layout(RectSize),
-//     Preview(RectSize, usize),
-//     Export(RectSize),
-// }
 struct PackingResult {
     total_w: usize,
     max_w: usize,
@@ -35,8 +23,10 @@ pub struct Packer {
     pub scale: ImageScaling,
     pub preview: RgbaImage,
     pub actual_size: RectSize,
+    pub cached: bool,
     // pub bg_color: Color32,
     packing_result: Option<PackingResult>,
+    cache: HashMap<PathBuf, ImageResult<DynamicImage>>,
 }
 impl Default for Packer {
     fn default() -> Self {
@@ -51,6 +41,8 @@ impl Default for Packer {
             actual_size: RectSize::default(),
             // bg_color: Color32::TRANSPARENT,
             packing_result: None,
+            cached: false,
+            cache: HashMap::<PathBuf, ImageResult<DynamicImage>>::new(),
         }
     }
 }
@@ -212,12 +204,37 @@ impl Packer {
             } else {
                 //Update Layout Preview with new loaded image
                 if let Some(item) = &packed.positions.get((loaded - 1) as usize) {
-                    if let Ok(image) = image::open(&item.1.file) {
-                        let thumbnail = thumbnail(
-                            &image,
-                            (item.1.width as f32 * div).floor() as u32,
-                            (item.1.height as f32 * div).floor() as u32,
-                        );
+                    let thumbnail = match self.cached {
+                        true => {
+                            if !self.cache.contains_key(&item.1.file) {
+                                self.cache
+                                    .insert(item.1.file.clone(), image::open(&item.1.file));
+                            }
+                            let stored = self.cache.get(&item.1.file).unwrap();
+                            if let Ok(image) = stored {
+                                Some(thumbnail(
+                                    image,
+                                    (item.1.width as f32 * div).floor() as u32,
+                                    (item.1.height as f32 * div).floor() as u32,
+                                ))
+                            } else {
+                                None
+                            }
+                        }
+                        false => {
+                            let loaded = image::open(&item.1.file);
+                            if let Ok(image) = loaded {
+                                Some(thumbnail(
+                                    &image,
+                                    (item.1.width as f32 * div).floor() as u32,
+                                    (item.1.height as f32 * div).floor() as u32,
+                                ))
+                            } else {
+                                None
+                            }
+                        }
+                    };
+                    if let Some(thumbnail) = thumbnail {
                         let loc = item.0;
                         let (dx, dy) = (
                             ((loc.x + self.margin / 2) as f32 * div).floor() as u32,
@@ -232,122 +249,80 @@ impl Packer {
         }
     }
 
+    fn combine_image(&mut self) -> Option<RgbaImage> {
+        if let Some(packed) = &self.packing_result {
+            let max_w = packed.max_w;
+            let max_h = packed.max_h;
+            let image_size = match self.scale {
+                ImageScaling::Actual => RectSize::new(max_w, max_h),
+                ImageScaling::Preview(_) => RectSize::by_scale_and_ratio(
+                    &ImageScaling::Preview(self.preview_width),
+                    &self.aspect,
+                ),
+                scale => RectSize::by_scale_and_ratio(&scale, &self.aspect),
+            };
+
+            let crop = (packed.max_w as f32)
+                .max(packed.max_h as f32 / self.aspect.div())
+                .min(packed.total_w as f32);
+            let div = match self.scale {
+                ImageScaling::Actual => 1.0,
+                _ => (image_size.w) as f32 / crop,
+            };
+
+            self.actual_size = RectSize::new(max_w, max_h);
+            let mut combined = RgbaImage::new(image_size.w as u32, image_size.h as u32);
+
+            for item in &packed.positions {
+                if let Ok(image) = image::open(&item.1.file) {
+                    let thumbnail = resize(
+                        &image,
+                        (item.1.width as f32 * div).floor() as u32,
+                        (item.1.height as f32 * div).floor() as u32,
+                        FilterType::CatmullRom,
+                    );
+
+                    let loc = item.0;
+                    let (dx, dy) = (
+                        (loc.x as f32 * div).floor() as u32,
+                        (loc.y as f32 * div).floor() as u32,
+                    );
+                    replace(&mut combined, &thumbnail, dx, dy);
+                }
+            }
+            return Some(combined);
+        }
+        None
+    }
+
     pub fn export(&mut self, path: &Path, to_zip: bool) {
-        todo!();
+        let file_name = file_timestamp();
+        if let Some(combined) = self.combine_image() {
+            let img_result =
+                combined.save(Path::new(path).join(format!("{}.{}", file_name, "png")));
+            match img_result {
+                Ok(_) => println!("Combined image saved!"),
+                Err(err) => println!("Couldn't save image!\n{}", err),
+            }
+            if to_zip {
+                let files: Vec<&PathBuf> = self
+                    .items
+                    .iter()
+                    .flatten()
+                    .map(|item| &item.data.file)
+                    .collect();
+                let zip_result = archive_files(
+                    files,
+                    Path::new(path).join(format!("{}.{}", file_name, "zip")),
+                );
+                match zip_result {
+                    Ok(_) => println!("Zip archive saved!"),
+                    Err(err) => println!("Couldn't save archive!\n{}", err),
+                }
+            }
+        }
     }
 }
-
-//fn combine_image(&mut self, task: CombineTask) -> Option<RgbaImage> {
-//    if let Ok(packed) = &self.pic_placement {
-//        let mut max_w = 0;
-//        let mut max_h = 0;
-//        for item in &packed.2 {
-//            max_w = max_w.max(item.0.w + item.0.x);
-//            max_h = max_h.max(item.0.h + item.0.y);
-//        }
-//        let mut image_size = match task {
-//            CombineTask::Layout(rect) => rect,
-//            CombineTask::Preview(rect, _) => rect,
-//            CombineTask::Export(rect) => rect,
-//        };
-//        let crop = (max_w as f32)
-//            .max(max_h as f32 / self.aspect.div())
-//            .min(packed.0 as f32);
-//        let mut div = image_size.w as f32 / crop;
-
-//        //In case of pixel perfect big picture
-//        if let CombineTask::Export(_) = task {
-//            if self.scale == ImageScaling::Actual {
-//                div = 1.0;
-//                image_size = RectSize::new(max_w, max_h);
-//            }
-//        }
-//        self.actual_size = RectSize::new(max_w, max_h);
-//        let mut combined = RgbaImage::new(image_size.w as u32, image_size.h as u32);
-
-//        if let CombineTask::Layout(_) = task {
-//            for item in &packed.2 {
-//                let color_box = RgbaImage::from_pixel(
-//                    (item.1.width as f32 * div).floor() as u32,
-//                    (item.1.height as f32 * div).floor() as u32,
-//                    item.1.color,
-//                );
-//                let loc = item.0;
-//                let (dx, dy) = (
-//                    (loc.x as f32 * div).floor() as u32,
-//                    (loc.y as f32 * div).floor() as u32,
-//                );
-//                replace(&mut combined, &color_box, dx, dy);
-//            }
-//        } else {
-//            for item in &packed.2 {
-//                if let Ok(image) = image::open(&item.1.file) {
-//                    let thumbnail = match task {
-//                        CombineTask::Preview(_, _) | CombineTask::Layout(_) => thumbnail(
-//                            &image,
-//                            (item.1.width as f32 * div).floor() as u32,
-//                            (item.1.height as f32 * div).floor() as u32,
-//                        ),
-//                        CombineTask::Export(_) => resize(
-//                            &image,
-//                            (item.1.width as f32 * div).floor() as u32,
-//                            (item.1.height as f32 * div).floor() as u32,
-//                            FilterType::CatmullRom,
-//                        ),
-//                    };
-//                    let loc = item.0;
-//                    let (dx, dy) = (
-//                        (loc.x as f32 * div).floor() as u32,
-//                        (loc.y as f32 * div).floor() as u32,
-//                    );
-//                    replace(&mut combined, &thumbnail, dx, dy);
-//                }
-//            }
-//        }
-
-//    }
-//}
-
-// pub fn preview(&mut self, loaded: usize) {
-//     let size =
-//         RectSize::by_scale_and_ratio(&ImageScaling::Preview(self.preview_width), &self.aspect);
-
-//     let task = match loaded {
-//         0 => CombineTask::Layout(size),
-//         _ => CombineTask::Preview(size, loaded - 1),
-//     };
-//     self.combine_image(task).to_vec()
-// }
-
-// pub fn export(&mut self, path: &Path, to_zip: bool) {
-//     let size = RectSize::by_scale_and_ratio(&self.scale, &self.aspect);
-//     let file_name = file_timestamp();
-//     if let Some(combined) = self.combine_image(CombineTask::Export(size)) {
-//         let img_result =
-//             combined.save(Path::new(path).join(format!("{}.{}", file_name, "png")));
-//         match img_result {
-//             Ok(_) => println!("Combined image saved!"),
-//             Err(err) => println!("Couldn't save image!\n{}", err),
-//         }
-//         if to_zip {
-//             let files: Vec<&PathBuf> = self
-//                 .items
-//                 .iter()
-//                 .flatten()
-//                 .map(|item| &item.data.file)
-//                 .collect();
-//             let zip_result = archive_files(
-//                 files,
-//                 Path::new(path).join(format!("{}.{}", file_name, "zip")),
-//             );
-//             match zip_result {
-//                 Ok(_) => println!("Zip archive saved!"),
-//                 Err(err) => println!("Couldn't save archive!\n{}", err),
-//             }
-//         }
-//     }
-// }
-// }
 
 fn pack_to_ratio(
     items: &[Item<Pic>],
