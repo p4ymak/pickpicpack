@@ -1,6 +1,6 @@
 [package]
 name = "pickpicpack"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 authors = ["Roman Chumak <p4ymak@gmail.com>"]
 resolver = "2"
@@ -24,8 +24,8 @@ directories = "4.0.1"
 image = "0.23.14"
 crunch = "0.3.3"
 chrono = "0.4.19"
-imagesize = "0.9.0"
 serde = "1.0.130"
+rand = "0.8.4"
 zip = "0.5.13"
 
 [profile.release]
