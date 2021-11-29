@@ -1,6 +1,6 @@
 [package]
 name = "pickpicpack"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 authors = ["Roman Chumak <p4ymak@gmail.com>"]
 resolver = "2"

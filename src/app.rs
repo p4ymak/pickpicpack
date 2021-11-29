@@ -13,6 +13,8 @@ struct Settings {
     screen_size: RectSize,
     width: f32,
     preview_size: RectSize,
+    ratio_string: String,
+    ratio_custom: (usize, usize),
     zip: bool,
     export_path: PathBuf,
 }
@@ -22,6 +24,8 @@ impl Default for Settings {
             screen_size: RectSize::default(),
             width: 512.0,
             preview_size: RectSize::default(),
+            ratio_string: "2 : 1".to_string(),
+            ratio_custom: (2, 1),
             zip: false,
             export_path: default_path(),
         }
@@ -65,6 +69,7 @@ pub struct P3App {
     packer: Packer,
     texture: Option<egui::TextureId>,
     counter: Counter,
+    shortcuts: bool,
     fader: Option<String>,
 }
 
@@ -115,14 +120,6 @@ impl epi::App for P3App {
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
-        if let Some(id) = self.counter.update() {
-            self.packer.combine_thumbnails(id);
-            self.allocate_texure(frame);
-            self.settings.preview_size = RectSize::by_scale_and_ratio(
-                &ImageScaling::Preview(self.settings.width),
-                &self.packer.aspect,
-            );
-        }
         let screen_rect = ctx.input().screen_rect();
         let w = screen_rect.max.x;
         let h = screen_rect.max.y;
@@ -132,6 +129,15 @@ impl epi::App for P3App {
             false => ((h / ratio), h),
         };
         self.packer.preview_width = box_w;
+
+        if let Some(id) = self.counter.update() {
+            self.packer.combine_thumbnails(id);
+            self.allocate_texure(frame);
+            self.settings.preview_size = RectSize::by_scale_and_ratio(
+                &ImageScaling::Preview(self.settings.width),
+                &self.packer.aspect,
+            );
+        }
 
         egui::Area::new("image")
             .order(Order::Background)
@@ -190,8 +196,9 @@ impl epi::App for P3App {
         }
 
         self.detect_files_being_dropped(ctx);
-        self.handle_keys(ctx);
-
+        if self.shortcuts {
+            self.handle_keys(ctx);
+        }
         if !self.counter.finished() {
             ctx.request_repaint();
         }
@@ -250,6 +257,46 @@ impl P3App {
                         let tooltip_ratio =
                             "Aspect ratio of packaging area.\nUpdates package on change..";
                         ratio.label("Ratio:").on_hover_text(tooltip_ratio);
+                        let ratio_input = ratio.add(
+                            egui::TextEdit::singleline(&mut self.settings.ratio_string)
+                                .desired_width(60.0),
+                        );
+                        if ratio_input.gained_focus() {
+                            self.settings.ratio_string = String::new();
+                            self.shortcuts = false;
+                        }
+                        if ratio_input.lost_focus() {
+                            self.shortcuts = true;
+                        }
+                        if ratio_input.lost_focus()
+                        //&& ctx.input().key_pressed(egui::Key::Enter) {
+                        {
+                            self.settings.ratio_custom =
+                                parse_custom_ratio(&self.settings.ratio_string);
+                            self.settings.ratio_string = format!(
+                                "{} : {}",
+                                self.settings.ratio_custom.0, self.settings.ratio_custom.1
+                            );
+                            // self.shortcuts = true;
+                        }
+                        // if ratio_input.lost_focus() {
+                        //     self.shortcuts = true;
+                        // }
+
+                        if ratio
+                            .selectable_value(
+                                &mut self.packer.aspect,
+                                AspectRatio::Custom(self.settings.ratio_custom),
+                                format!(
+                                    "{} : {}",
+                                    self.settings.ratio_custom.0, self.settings.ratio_custom.1
+                                ),
+                            )
+                            .clicked()
+                        {
+                            self.update_packer(&[]);
+                        }
+
                         if ratio
                             .selectable_value(&mut self.packer.aspect, AspectRatio::Square, "1 : 1")
                             .clicked()
@@ -263,13 +310,6 @@ impl P3App {
                             || ratio
                                 .selectable_value(
                                     &mut self.packer.aspect,
-                                    AspectRatio::ThreeFour,
-                                    "3 : 4",
-                                )
-                                .clicked()
-                            || ratio
-                                .selectable_value(
-                                    &mut self.packer.aspect,
                                     AspectRatio::ThreeTwo,
                                     "3 : 2",
                                 )
@@ -277,22 +317,8 @@ impl P3App {
                             || ratio
                                 .selectable_value(
                                     &mut self.packer.aspect,
-                                    AspectRatio::TwoThree,
-                                    "2 : 3",
-                                )
-                                .clicked()
-                            || ratio
-                                .selectable_value(
-                                    &mut self.packer.aspect,
                                     AspectRatio::SixteenNine,
                                     "16 : 9",
-                                )
-                                .clicked()
-                            || ratio
-                                .selectable_value(
-                                    &mut self.packer.aspect,
-                                    AspectRatio::NineSixteen,
-                                    "9 : 16",
                                 )
                                 .clicked()
                             || ratio
@@ -346,10 +372,14 @@ impl P3App {
                             };
                             self.update_packer(&[]);
                         }
-                        if scaling.button("+").clicked() {
+                        let plus = match self.packer.margin {
+                            1024 => scaling.add_enabled(false, Button::new("+")),
+                            _ => scaling.add_enabled(true, Button::new("+")),
+                        };
+                        if plus.clicked() {
                             self.packer.margin = match self.packer.margin {
                                 0 => 1,
-                                x => x * 2,
+                                x => (x * 2).min(1024),
                             };
                             self.update_packer(&[]);
                         }
@@ -360,7 +390,8 @@ impl P3App {
                         scaling
                             .label(format!(
                                 "Loaded: {} / {}",
-                                self.counter.recent, self.counter.total
+                                self.counter.recent.max(0),
+                                self.counter.total.max(0)
                             ))
                             .on_hover_text(tooltip_margin);
                     });
