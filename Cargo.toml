@@ -27,6 +27,8 @@ chrono = "0.4.19"
 serde = "1.0.130"
 rand = "0.8.4"
 zip = "0.5.13"
+fuzzy_fraction = "0.1.1"
+clap = "2.34.0"
 
 [profile.release]
 opt-level = 3

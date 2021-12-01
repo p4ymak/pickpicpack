@@ -257,40 +257,34 @@ impl P3App {
                         let tooltip_ratio =
                             "Aspect ratio of packaging area.\nUpdates package on change..";
                         ratio.label("Ratio:").on_hover_text(tooltip_ratio);
-                        let ratio_input = ratio.add(
-                            egui::TextEdit::singleline(&mut self.settings.ratio_string)
-                                .desired_width(60.0),
-                        );
+
+                        let tooltip_custom =
+                            "Custom Aspect Ratio.\nEnter a float number or a pair of integers..";
+                        let ratio_input = ratio
+                            .add(
+                                egui::TextEdit::singleline(&mut self.settings.ratio_string)
+                                    .desired_width(40.0),
+                            )
+                            .on_hover_text(tooltip_custom);
                         if ratio_input.gained_focus() {
                             self.settings.ratio_string = String::new();
                             self.shortcuts = false;
                         }
                         if ratio_input.lost_focus() {
-                            self.shortcuts = true;
-                        }
-                        if ratio_input.lost_focus()
-                        //&& ctx.input().key_pressed(egui::Key::Enter) {
-                        {
                             self.settings.ratio_custom =
                                 parse_custom_ratio(&self.settings.ratio_string);
                             self.settings.ratio_string = format!(
                                 "{} : {}",
                                 self.settings.ratio_custom.0, self.settings.ratio_custom.1
                             );
-                            // self.shortcuts = true;
+                            self.shortcuts = true;
                         }
-                        // if ratio_input.lost_focus() {
-                        //     self.shortcuts = true;
-                        // }
 
                         if ratio
                             .selectable_value(
                                 &mut self.packer.aspect,
                                 AspectRatio::Custom(self.settings.ratio_custom),
-                                format!(
-                                    "{} : {}",
-                                    self.settings.ratio_custom.0, self.settings.ratio_custom.1
-                                ),
+                                format!("{} this", "<-"),
                             )
                             .clicked()
                         {
@@ -508,10 +502,7 @@ impl P3App {
                                             &self.packer.aspect,
                                         ),
                                     };
-                                    format!(
-                                        "Save result to file..\n{} x {}\nShortcut: [Enter]",
-                                        size.w, size.h
-                                    )
+                                    format!("Save result to file..\n{} x {}", size.w, size.h)
                                 })
                                 .clicked()
                             {
@@ -529,7 +520,8 @@ impl P3App {
                                 // );
                                 // ui.label(
                                 format!(
-                                    "PickPicPack v{} by Roman Chumak",
+                                    "{} v{} by Roman Chumak",
+                                    OUTPUT_NAME,
                                     env!("CARGO_PKG_VERSION"),
                                 ),
                             ),
@@ -572,11 +564,11 @@ impl P3App {
                     pressed: true,
                     ..
                 } => self.clear(),
-                Event::Key {
-                    key: egui::Key::Enter,
-                    pressed: true,
-                    ..
-                } => self.export(),
+                // Event::Key {
+                //     key: egui::Key::Enter,
+                //     pressed: true,
+                //     ..
+                // } => self.export(),
                 Event::Key {
                     key: egui::Key::Space,
                     pressed: true,

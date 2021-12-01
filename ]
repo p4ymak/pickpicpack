@@ -4,38 +4,9 @@ mod app;
 mod loader;
 mod packer;
 mod utils;
-
 use app::*;
 use clap::{App, Arg};
-use eframe::egui::DroppedFile;
-use packer::Packer;
-use std::path::PathBuf;
-use utils::*;
-
-struct CLIArgsParsed {
-    pub input: PathBuf,
-    pub output: PathBuf,
-    pub ratio: AspectRatio,
-    pub equal: bool,
-    pub scale: ImageScaling,
-    pub zip: bool,
-}
-
-fn run_cli(args: CLIArgsParsed) {
-    let size = match args.scale {
-        ImageScaling::Preview(side) => side,
-        _ => 512.0,
-    };
-    let mut packer = Packer::new(size, args.ratio, args.scale, args.equal);
-    let dropped = DroppedFile {
-        path: Some(args.input),
-        name: String::new(),
-        last_modified: None,
-        bytes: None,
-    };
-    packer.update(&[dropped]);
-    packer.export(&args.output, args.zip);
-}
+use utils::OUTPUT_NAME;
 
 fn run_gui() {
     let icon = eframe::epi::IconData {
@@ -62,7 +33,7 @@ fn run_gui() {
 }
 
 fn main() {
-    let cli = App::new(OUTPUT_NAME)
+    let matches = App::new(OUTPUT_NAME)
         .version(env!("CARGO_PKG_VERSION"))
         .author("by Roman Chumak")
         .about(env!("CARGO_PKG_DESCRIPTION"))
@@ -83,11 +54,11 @@ fn main() {
                 .takes_value(true),
         )
         .arg(
-            Arg::with_name("ratio")
-                .short("r")
-                .long("ratio")
-                .value_name("RATIO")
-                .help("Sets aspect ratio of package. Can be a float or a pair of integers. Default is 1:1.")
+            Arg::with_name("aspect")
+                .short("a")
+                .long("aspect")
+                .value_name("ASPECT")
+                .help("Sets aspect ratio of package. Default is 1:1.")
                 .takes_value(true),
         )
         .arg(
@@ -116,27 +87,13 @@ fn main() {
         )
         .get_matches();
 
-    if let Some(dir) = cli.value_of("input") {
-        run_cli(CLIArgsParsed {
-            input: PathBuf::from(dir),
-            output: match cli.value_of("output") {
-                Some(out) => PathBuf::from(out),
-                None => default_path(),
-            },
-            ratio: match cli.value_of("ratio") {
-                Some(ratio) => AspectRatio::Custom(parse_custom_ratio(ratio)),
-                None => AspectRatio::Square,
-            },
-            equal: cli.is_present("equal"),
-            scale: match cli.value_of("size") {
-                Some(size) => {
-                    ImageScaling::Preview(size.parse::<f32>().unwrap_or(1024.0).max(32.0))
-                }
-                None => ImageScaling::Actual,
-            },
-            zip: cli.is_present("zip"),
-        });
-    } else {
-        run_gui();
+    println!("{:?}", matches.value_of("input"));
+    match matches.value_of("input") {
+        Some(dir) => {
+            println!("{:?}", dir);
+        }
+        None => {
+            run_gui();
+        }
     }
 }

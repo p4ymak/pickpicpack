@@ -60,7 +60,9 @@ impl Packer {
     pub fn update(&mut self, dropped_items: &[DroppedFile]) -> usize {
         if !dropped_items.is_empty() {
             let new_pics = load_new_items(dropped_items);
-            self.add_items(new_pics);
+            if !new_pics.is_empty() {
+                self.add_items(new_pics);
+            }
         }
         let num = self.pack();
         self.combine_thumbnails(0);
@@ -88,7 +90,7 @@ impl Packer {
                         .flatten()
                         .map(|item| item.data.width.max(item.data.height))
                         .sum::<u32>()
-                        / (self.items.iter().map(|v| v.len()).sum::<usize>() as u32)
+                        / (self.items.iter().map(|v| v.len()).sum::<usize>() as u32).max(1)
                 }
                 false => 0,
             };

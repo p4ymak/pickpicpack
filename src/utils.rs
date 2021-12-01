@@ -1,6 +1,7 @@
 use chrono::Local;
 use directories::UserDirs;
 use eframe::egui::Rect;
+use fuzzy_fraction::fuzzy_fraction;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -158,7 +159,8 @@ pub fn archive_files(files: Vec<&PathBuf>, path: PathBuf) -> ZipResult<()> {
 pub fn parse_custom_ratio(raw_text: &str) -> (usize, usize) {
     // const DEFAULT: (usize, usize) = (1, 1);
     if let Ok(f) = raw_text.parse::<f32>() {
-        return fuzzy_fraction((f * 100.0).floor() as usize, 100);
+        let (x, y) = fuzzy_fraction((f.abs() * 100.0).floor() as usize, 100);
+        return (x.min(100), y.min(100));
     }
 
     let input_vec: Vec<&str> = raw_text
@@ -176,142 +178,13 @@ pub fn parse_custom_ratio(raw_text: &str) -> (usize, usize) {
         .unwrap_or(&"")
         .parse::<usize>()
         .unwrap_or(0);
-    match (a, b) {
+
+    let (x, y) = match (a, b) {
         (0, 0) => (2, 1),
         (a, 0) => (a, 1),
         (0, b) => (1, b),
         (a, b) => fuzzy_fraction(a, b),
-    }
-}
-
-// fn gcd(a: usize, b: usize) -> usize {
-//     match ((a, b), (a & 1, b & 1)) {
-//         ((x, y), _) if x == y => y,
-//         ((0, x), _) | ((x, 0), _) => x,
-//         ((x, y), (0, 1)) | ((y, x), (1, 0)) => gcd(x >> 1, y),
-//         ((x, y), (0, 0)) => gcd(x >> 1, y >> 1) << 1,
-//         ((x, y), (1, 1)) => {
-//             let (x, y) = (x.min(y), x.max(y));
-//             gcd((y - x) >> 1, x)
-//         }
-//         _ => unreachable!(),
-//     }
-// }
-
-//I'm not proud of it, but it works just like it shold - fast and dirty.
-fn fuzzy_fraction(a: usize, b: usize) -> (usize, usize) {
-    println!("{} {}", a, b);
-    match (a, b) {
-        (0, 0) => return (a, b),
-        (0, _) => return (0, 1),
-        (_, 0) => return (1, 0),
-        // (a, b)
-        //     if ((a.max(b) - a.min(b)) as f32 / ((a + b) as f32 / 2.0) * 100.0) as usize <= 10 =>
-        // {
-        //     return (1, 1)
-        // }
-        (a, b) if a as f32 / b as f32 >= 100.0 => return (100, 1),
-        (a, b) if b as f32 / a as f32 >= 100.0 => return (1, 100),
-        (_, _) => (),
     };
 
-    let switch = a < b;
-    let max = a.max(b);
-    let min = a.min(b);
-    let float = max as f32 / min as f32;
-    let whole = float.floor();
-    let d = ((float - whole) * 100.0) as usize;
-    if d <= 10 || float.round() >= 10.0 {
-        match switch {
-            true => return (1, float.round() as usize),
-            false => return (float.round() as usize, 1),
-        };
-    }
-    let fraction = {
-        if d < 47 {
-            if d < 25 {
-                if d < 16 {
-                    if d < 12 {
-                        if d < 11 {
-                            (1, 10)
-                        } else {
-                            (1, 9)
-                        }
-                    } else if d < 14 {
-                        (1, 8)
-                    } else {
-                        (1, 7)
-                    }
-                } else if d < 19 {
-                    (1, 6)
-                } else if d < 22 {
-                    (1, 5)
-                } else {
-                    (2, 9)
-                }
-            } else if d < 37 {
-                if d < 28 {
-                    (1, 4)
-                } else if d < 31 {
-                    (2, 7)
-                } else {
-                    (1, 3)
-                }
-            } else if d < 42 {
-                if d < 40 {
-                    (3, 8)
-                } else {
-                    (2, 5)
-                }
-            } else if d < 44 {
-                (3, 7)
-            } else {
-                (4, 9)
-            }
-        } else if d < 71 {
-            if d < 60 {
-                if d < 55 {
-                    (1, 2)
-                } else if d < 57 {
-                    (5, 9)
-                } else {
-                    (4, 7)
-                }
-            } else if d < 62 {
-                (3, 5)
-            } else if d < 66 {
-                (5, 8)
-            } else {
-                (2, 3)
-            }
-        } else if d < 80 {
-            if d < 74 {
-                (5, 7)
-            } else if d < 77 {
-                (3, 4)
-            } else {
-                (7, 9)
-            }
-        } else if d < 85 {
-            if d < 83 {
-                (4, 5)
-            } else {
-                (5, 6)
-            }
-        } else if d < 87 {
-            (6, 7)
-        } else if d < 88 {
-            (7, 8)
-        } else if d < 90 {
-            (8, 9)
-        } else {
-            (9, 10)
-        }
-    };
-
-    let answer = (whole as usize * fraction.1 + fraction.0, fraction.1);
-    if switch {
-        return (answer.1, answer.0);
-    }
-    answer
+    (x.min(100), y.min(100))
 }
