@@ -10,7 +10,6 @@ use std::path::PathBuf;
 
 #[derive(Debug)]
 struct Settings {
-    screen_size: RectSize,
     width: f32,
     preview_size: RectSize,
     ratio_string: String,
@@ -21,7 +20,6 @@ struct Settings {
 impl Default for Settings {
     fn default() -> Settings {
         Settings {
-            screen_size: RectSize::default(),
             width: 512.0,
             preview_size: RectSize::default(),
             ratio_string: "2 : 1".to_string(),
@@ -105,6 +103,7 @@ impl epi::App for P3App {
         self.packer.update(&[]);
         self.counter.reset();
 
+        self.shortcuts = true;
         self.settings.preview_size = RectSize::by_scale_and_ratio(
             &ImageScaling::Preview(self.settings.width),
             &self.packer.aspect,
