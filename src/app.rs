@@ -515,7 +515,7 @@ impl P3App {
                     ui.separator();
                     ui.vertical_centered(|ui| {
                         ui.add(
-                            egui::Hyperlink::new("http://www.p43d.com/pickpicpack").text(
+                            egui::Hyperlink::new("http://www.p4ymak.su/pickpicpack").text(
                                 // );
                                 // ui.label(
                                 format!(

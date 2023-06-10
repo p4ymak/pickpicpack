@@ -18,7 +18,7 @@ fn get_dimensions(path: &Path) -> ImageResult<(u32, u32)> {
 
 pub fn get_all_files(path: &Path) -> Vec<PathBuf> {
     let mut result = Vec::<PathBuf>::new();
-    if let Ok(metadata) = fs::metadata(&path) {
+    if let Ok(metadata) = fs::metadata(path) {
         if metadata.is_file() {
             result.push(PathBuf::from(path));
         } else if metadata.is_dir() {

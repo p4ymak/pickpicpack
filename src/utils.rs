@@ -36,8 +36,9 @@ pub fn random_gray() -> image::Rgba<u8> {
     image::Rgba::<u8>::from([r, r / 4, 0, 128])
 }
 
-#[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Default, PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum AspectRatio {
+    #[default]
     Square,
     FourThree,
     ThreeTwo,
@@ -45,11 +46,7 @@ pub enum AspectRatio {
     Window(f32),
     Custom((usize, usize)),
 }
-impl Default for AspectRatio {
-    fn default() -> AspectRatio {
-        AspectRatio::Square
-    }
-}
+
 impl AspectRatio {
     pub fn div(&self) -> f32 {
         match self {
@@ -63,20 +60,16 @@ impl AspectRatio {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Default, PartialEq, Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum ImageScaling {
     Preview(f32),
     FitScreen(Rect),
     HalfK,
+    #[default]
     OneK,
     TwoK,
     FourK,
     Actual,
-}
-impl Default for ImageScaling {
-    fn default() -> ImageScaling {
-        ImageScaling::OneK
-    }
 }
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -149,7 +142,7 @@ pub fn archive_files(files: Vec<&PathBuf>, path: PathBuf) -> ZipResult<()> {
         zip.start_file(file_name, options)?;
         let mut f = File::open(file)?;
         f.read_to_end(&mut buffer)?;
-        zip.write_all(&*buffer)?;
+        zip.write_all(&buffer)?;
         buffer.clear();
     }
     zip.finish()?;
@@ -169,7 +162,7 @@ pub fn parse_custom_ratio(raw_text: &str) -> (usize, usize) {
         .collect();
 
     let a = input_vec
-        .get(0)
+        .first()
         .unwrap_or(&"")
         .parse::<usize>()
         .unwrap_or(0);
