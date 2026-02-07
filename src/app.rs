@@ -1,11 +1,13 @@
 use super::packer::*;
 use super::utils::*;
-use core::time::Duration;
-use eframe::{egui, epi};
+use eframe::egui;
+use eframe::get_value;
+use eframe::set_value;
+use eframe::Storage;
 use egui::*;
-use epi::Storage;
-// use image::RgbaImage;
-use plot::{Plot, PlotImage, Polygon, Value, Values};
+use egui_plot::PlotPoint;
+use egui_plot::PlotPoints;
+use egui_plot::{Plot, PlotImage, Polygon};
 use std::path::PathBuf;
 
 #[derive(Debug)]
@@ -71,77 +73,77 @@ pub struct P3App {
     fader: Option<String>,
 }
 
-impl epi::App for P3App {
-    fn name(&self) -> &str {
-        OUTPUT_NAME
-    }
-    fn warm_up_enabled(&self) -> bool {
-        true
-    }
-    fn persist_native_window(&self) -> bool {
-        true
-    }
-    fn persist_egui_memory(&self) -> bool {
-        false
-    }
-    fn auto_save_interval(&self) -> Duration {
-        Duration::MAX
-    }
-    fn setup(
-        &mut self,
-        _ctx: &egui::CtxRef,
-        _frame: &mut epi::Frame<'_>,
-        storage: Option<&dyn Storage>,
-    ) {
-        self.packer = Packer::new(
-            self.settings.width,
-            AspectRatio::default(),
-            ImageScaling::default(),
-            false,
-        );
-        self.load(storage);
-        self.packer.update(&[]);
-        self.counter.reset();
+impl eframe::App for P3App {
+    // fn name(&self) -> &str {
+    //     OUTPUT_NAME
+    // }
+    // fn warm_up_enabled(&self) -> bool {
+    //     true
+    // }
+    // fn persist_native_window(&self) -> bool {
+    //     true
+    // }
+    // fn persist_egui_memory(&self) -> bool {
+    //     false
+    // }
+    // fn auto_save_interval(&self) -> Duration {
+    //     Duration::MAX
+    // }
+    // fn setup(
+    //     &mut self,
+    //     _ctx: &egui::CtxRef,
+    //     _frame: &mut epi::Frame<'_>,
+    //     storage: Option<&dyn Storage>,
+    // ) {
+    //     self.packer = Packer::new(
+    //         self.settings.width,
+    //         AspectRatio::default(),
+    //         ImageScaling::default(),
+    //         false,
+    //     );
+    //     self.load(storage);
+    //     self.packer.update(&[]);
+    //     self.counter.reset();
 
-        self.shortcuts = true;
-        self.settings.preview_size = RectSize::by_scale_and_ratio(
-            &ImageScaling::Preview(self.settings.width),
-            &self.packer.aspect,
-        );
+    //     self.shortcuts = true;
+    //     self.settings.preview_size = RectSize::by_scale_and_ratio(
+    //         &ImageScaling::Preview(self.settings.width),
+    //         &self.packer.aspect,
+    //     );
+    // }
+
+    fn save(&mut self, storage: &mut dyn Storage) {
+        set_value(storage, "PPP_scale", &self.packer.scale);
+        set_value(storage, "PPP_equal", &self.packer.equal);
+        set_value(storage, "PPP_ratio", &self.packer.aspect);
+        set_value(storage, "PPP_export_path", &self.settings.export_path);
+        set_value(storage, "PPP_zip", &self.settings.zip);
     }
 
-    fn save(&mut self, storage: &mut dyn epi::Storage) {
-        epi::set_value(storage, "PPP_scale", &self.packer.scale);
-        epi::set_value(storage, "PPP_equal", &self.packer.equal);
-        epi::set_value(storage, "PPP_ratio", &self.packer.aspect);
-        epi::set_value(storage, "PPP_export_path", &self.settings.export_path);
-        epi::set_value(storage, "PPP_zip", &self.settings.zip);
-    }
-
-    fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
-        let screen_rect = ctx.input().screen_rect();
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        let screen_rect = ctx.input(|i| i.viewport_rect());
         let w = screen_rect.max.x;
         let h = screen_rect.max.y;
         let ratio = self.packer.aspect.div();
         let (box_w, box_h) = match ratio <= h / w {
-            true => (w, (w * ratio)),
-            false => ((h / ratio), h),
+            true => (w as f64, (w * ratio) as f64),
+            false => ((h / ratio) as f64, h as f64),
         };
-        self.packer.preview_width = box_w;
+        self.packer.preview_width = box_w as f32;
 
         if let Some(id) = self.counter.update() {
             self.packer.combine_thumbnails(id);
-            self.allocate_texure(frame);
+            self.allocate_texure(ctx);
             self.settings.preview_size = RectSize::by_scale_and_ratio(
                 &ImageScaling::Preview(self.settings.width),
                 &self.packer.aspect,
             );
         }
 
-        egui::Area::new("image")
+        egui::Area::new("image".into())
             .order(Order::Background)
             .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
-            .drag_bounds(screen_rect)
+            // .drag_bounds(screen_rect)
             .show(ctx, |ui| {
                 if let Some(texture) = self.texture {
                     // let box_bg = Polygon::new(Values::from_values(vec![
@@ -152,46 +154,54 @@ impl epi::App for P3App {
                     // ]))
                     // .color(self.packer.bg_color)
                     // .fill_alpha(self.packer.bg_color.a() as f32 / 255.0);
-                    let image_preview =
-                        PlotImage::new(texture, Value::new(0.0, 0.0), [box_w, box_h]);
-                    let box_frame = Polygon::new(Values::from_values(vec![
-                        Value::new(-box_w / 2.0, -box_h / 2.0),
-                        Value::new(box_w / 2.0, -box_h / 2.0),
-                        Value::new(box_w / 2.0, box_h / 2.0),
-                        Value::new(-box_w / 2.0, box_h / 2.0),
-                    ]))
-                    .color(Color32::DARK_GRAY)
-                    .fill_alpha(0.0);
-
-                    ui.add(
-                        Plot::new("preview")
-                            // .polygon(box_bg)
-                            .polygon(box_frame)
-                            .image(image_preview)
-                            .width(screen_rect.max.x)
-                            .height(screen_rect.max.y)
-                            .allow_drag(false)
-                            .data_aspect(1.0)
-                            .view_aspect(1.0 / self.packer.aspect.div())
-                            .show_x(false)
-                            .show_y(false)
-                            .center_x_axis(true)
-                            .center_x_axis(true)
-                            .allow_drag(false)
-                            .allow_zoom(false)
-                            .show_background(false)
-                            .show_axes([false, false])
-                            .legend(plot::Legend {
-                                text_style: TextStyle::Small,
-                                background_alpha: 0.0,
-                                position: plot::Corner::RightBottom,
-                            }),
+                    let image_preview = PlotImage::new(
+                        "img",
+                        texture,
+                        PlotPoint::new(0.0, 0.0),
+                        [box_w as f32, box_h as f32],
                     );
+                    let box_frame = Polygon::new(
+                        "box",
+                        PlotPoints::new(vec![
+                            [-box_w / 2.0, -box_h / 2.0],
+                            [box_w / 2.0, -box_h / 2.0],
+                            [box_w / 2.0, box_h / 2.0],
+                            [-box_w / 2.0, box_h / 2.0],
+                        ]),
+                    )
+                    .fill_color(Color32::DARK_GRAY);
+
+                    Plot::new("preview")
+                        .width(screen_rect.max.x)
+                        .height(screen_rect.max.y)
+                        .allow_drag(false)
+                        .data_aspect(1.0)
+                        .view_aspect(1.0 / self.packer.aspect.div())
+                        .show_x(false)
+                        .show_y(false)
+                        .center_x_axis(true)
+                        .center_x_axis(true)
+                        .allow_drag(false)
+                        .allow_zoom(false)
+                        .show_background(false)
+                        .show_axes([false, false])
+                        .show(ui, |plot_ui| {
+                            plot_ui.polygon(box_frame);
+                            plot_ui.image(image_preview);
+                        }); // .legend(Legend {
+                            //     text_style: TextStyle::Small,
+                            //     background_alpha: 0.0,
+                            //     position: Corner::RightBottom,
+                            //     title: "",
+                            //     follow_insertion_order: todo!(),
+                            //     color_conflict_handling: todo!(),
+                            //     hidden_items: todo!(),
+                            // }),
                 }
             });
         //Draw GUI if mouse hovered window
-        if self.packer.items.is_empty() || ctx.input().pointer.has_pointer() {
-            self.hud(ctx, frame);
+        if self.packer.items.is_empty() || ctx.input(|i| i.pointer.has_pointer()) {
+            self.hud(ctx);
         }
 
         self.detect_files_being_dropped(ctx);
@@ -205,9 +215,9 @@ impl epi::App for P3App {
 }
 
 impl P3App {
-    fn allocate_texure(&mut self, frame: &mut epi::Frame<'_>) {
+    fn allocate_texure(&mut self, ctx: &egui::Context) {
         if let Some(texture) = self.texture {
-            frame.tex_allocator().free(texture);
+            ctx.tex_manager().write().free(texture);
         }
         // let preview = match self.counter.finished() {
         //     false => image::imageops::thumbnail(
@@ -224,18 +234,19 @@ impl P3App {
             .map(|p| Color32::from_rgba_unmultiplied(p[0], p[1], p[2], p[3]))
             .collect::<Vec<Color32>>();
 
-        let texture = frame.tex_allocator().alloc_srgba_premultiplied(
-            (
+        let image_data = ImageData::from(ColorImage::new(
+            [
                 self.packer.preview.width() as usize,
                 self.packer.preview.height() as usize,
-            ),
-            &pixels,
-        );
-        self.texture = Some(texture);
+            ],
+            pixels,
+        ));
+        let texture = ctx.load_texture("img", image_data, TextureOptions::LINEAR);
+        self.texture = Some(texture.id());
     }
 
     //GUI reaction
-    fn hud(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
+    fn hud(&mut self, ctx: &egui::Context) {
         egui::Window::new("Menu")
             .anchor(egui::Align2::LEFT_TOP, [0.0, 0.0])
             // .title_bar(false)
@@ -243,11 +254,12 @@ impl P3App {
             // .collapsible(false)
             // .auto_sized()
             .frame(Frame {
-                margin: Vec2::new(8.0, 8.0),
-                corner_radius: 0.0,
-                shadow: epaint::Shadow::small_dark(),
+                inner_margin: Margin::same(8),
+                corner_radius: CornerRadius::ZERO,
+                shadow: Shadow::NONE,
                 fill: Color32::from_rgb(33, 33, 33),
                 stroke: Stroke::new(1.0, Color32::DARK_GRAY),
+                outer_margin: Margin::ZERO,
             })
             .show(ctx, |panel| {
                 panel.vertical(|ui| {
@@ -318,8 +330,8 @@ impl P3App {
                                 .selectable_value(
                                     &mut self.packer.aspect,
                                     AspectRatio::Window(
-                                        ctx.input().screen_rect.max.y
-                                            / ctx.input().screen_rect.max.x,
+                                        ctx.input(|i| i.viewport_rect()).max.y
+                                            / ctx.input(|i| i.viewport_rect()).max.x,
                                     ),
                                     "Window",
                                 )
@@ -398,7 +410,7 @@ impl P3App {
                         if export_size
                             .selectable_value(
                                 &mut self.packer.scale,
-                                ImageScaling::FitScreen(ctx.input().screen_rect()),
+                                ImageScaling::FitScreen(ctx.input(|i| i.viewport_rect())),
                                 "Current",
                             )
                             .on_hover_text("Scale exported image to fit window.")
@@ -514,16 +526,13 @@ impl P3App {
 
                     ui.separator();
                     ui.vertical_centered(|ui| {
-                        ui.add(
-                            egui::Hyperlink::new("http://www.p4ymak.su/pickpicpack").text(
-                                // );
-                                // ui.label(
-                                format!(
-                                    "{} v{} by Roman Chumak",
-                                    OUTPUT_NAME,
-                                    env!("CARGO_PKG_VERSION"),
-                                ),
+                        ui.hyperlink_to(
+                            format!(
+                                "{} v{} by Roman Chumak",
+                                OUTPUT_NAME,
+                                env!("CARGO_PKG_VERSION"),
                             ),
+                            "http://www.p4ymak.su/pickpicpack",
                         );
                     });
                 })
@@ -538,10 +547,10 @@ impl P3App {
         }
     }
 
-    fn detect_files_being_dropped(&mut self, ctx: &egui::CtxRef) {
-        if !ctx.input().raw.dropped_files.is_empty() {
+    fn detect_files_being_dropped(&mut self, ctx: &egui::Context) {
+        if !ctx.input(|i| i.raw.dropped_files.is_empty()) {
             self.fader("packing");
-            self.update_packer(&ctx.input().raw.dropped_files);
+            self.update_packer(&ctx.input(|i| i.raw.dropped_files.clone()));
             self.fader("");
         }
     }
@@ -550,8 +559,8 @@ impl P3App {
         self.counter.renew(self.packer.update(files));
     }
 
-    fn handle_keys(&mut self, ctx: &egui::CtxRef) {
-        for event in &ctx.input().raw.events {
+    fn handle_keys(&mut self, ctx: &egui::Context) {
+        for event in ctx.input(|i| i.raw.events.clone()) {
             match event {
                 Event::Key {
                     key: egui::Key::Backspace,
@@ -606,21 +615,21 @@ impl P3App {
             .export(&self.settings.export_path, self.settings.zip);
         self.fader("");
     }
-    fn window_ratio(&mut self, ctx: &egui::CtxRef) {
+    fn window_ratio(&mut self, ctx: &egui::Context) {
         self.packer.aspect =
-            AspectRatio::Window(ctx.input().screen_rect.max.y / ctx.input().screen_rect.max.x);
+            AspectRatio::Window(ctx.input(|i| i.viewport_rect().max.y / i.viewport_rect().max.x));
         self.update_packer(&[]);
     }
 
     // Load state
-    fn load(&mut self, storage: Option<&dyn epi::Storage>) {
+    fn load(&mut self, storage: Option<&dyn Storage>) {
         if let Some(storage) = storage {
-            self.packer.scale = epi::get_value(storage, "PPP_scale").unwrap_or_default();
-            self.packer.equal = epi::get_value(storage, "PPP_equal").unwrap_or_default();
-            self.packer.aspect = epi::get_value(storage, "PPP_ratio").unwrap_or_default();
+            self.packer.scale = get_value(storage, "PPP_scale").unwrap_or_default();
+            self.packer.equal = get_value(storage, "PPP_equal").unwrap_or_default();
+            self.packer.aspect = get_value(storage, "PPP_ratio").unwrap_or_default();
             self.settings.export_path =
-                epi::get_value(storage, "PPP_export_path").unwrap_or_else(default_path);
-            self.settings.zip = epi::get_value(storage, "PPP_zip").unwrap_or_default();
+                get_value(storage, "PPP_export_path").unwrap_or_else(default_path);
+            self.settings.zip = get_value(storage, "PPP_zip").unwrap_or_default();
         }
     }
 }

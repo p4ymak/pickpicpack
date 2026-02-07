@@ -1,6 +1,6 @@
 [package]
 name = "pickpicpack"
-version = "0.1.6"
+version = "0.2.0"
 edition = "2021"
 authors = ["Roman Chumak <p4ymak@gmail.com>"]
 resolver = "2"
@@ -10,7 +10,7 @@ description = "Packing multiple images to one."
 name = "PickPicPack"
 identifier = "com.p4.pickpicpack"
 icon = ["./icon/32x32.png", "./icon/128x128.png", "./icon/128x128@2x.png"]
-copyright = "Copyright (c) Roman Chumak 2021. All rights reserved."
+copyright = "Copyright (c) Roman Chumak 2026. All rights reserved."
 category = "Graphics and Design"
 short_description = "Packing multiple images to one."
 long_decription = """
@@ -18,7 +18,8 @@ Tiny yet powerful utility for packaging multiple images to new one with custom a
 """
 
 [dependencies]
-eframe = {version = "0.15.0", features = ["persistence"] }
+eframe = {version = "0.33.3", features = ["persistence"] }
+egui_plot = "0.34.0"
 rfd = "0.5.1"
 directories = "4.0.1"
 image = "0.23.14"

@@ -7,7 +7,7 @@ mod utils;
 
 use app::*;
 use clap::{App, Arg};
-use eframe::egui::DroppedFile;
+use eframe::egui::{self, DroppedFile, IconData};
 use packer::Packer;
 use std::path::PathBuf;
 use utils::*;
@@ -28,6 +28,7 @@ fn run_cli(args: CLIArgsParsed) {
     };
     let mut packer = Packer::new(size, args.ratio, args.scale, args.equal);
     let dropped = DroppedFile {
+        mime: "Image".to_string(),
         path: Some(args.input),
         name: String::new(),
         last_modified: None,
@@ -37,8 +38,8 @@ fn run_cli(args: CLIArgsParsed) {
     packer.export(&args.output, args.zip);
 }
 
-fn run_gui() {
-    let icon = eframe::epi::IconData {
+fn run_gui() -> Result<(), eframe::Error> {
+    let icon = IconData {
         rgba: image::load_from_memory(include_bytes!("../icon/128x128@2x.png"))
             .unwrap()
             .to_rgba8()
@@ -47,18 +48,27 @@ fn run_gui() {
         height: 256,
     };
 
-    let start_state = P3App::default();
     let options = eframe::NativeOptions {
-        always_on_top: false,
-        decorated: true,
-        resizable: true,
-        maximized: false,
-        drag_and_drop_support: true,
-        transparent: true,
-        icon_data: Some(icon),
+        viewport: egui::ViewportBuilder::default()
+            .with_icon(icon)
+            .with_taskbar(true)
+            .with_app_id(OUTPUT_NAME)
+            .with_decorations(true)
+            .with_transparent(false)
+            .with_resizable(true)
+            .with_maximized(false)
+            .with_drag_and_drop(true)
+            .with_inner_size([340.0, 624.0])
+            .with_transparent(true)
+            .with_min_inner_size([280.0, 280.0]),
         ..Default::default()
     };
-    eframe::run_native(Box::new(start_state), options);
+
+    eframe::run_native(
+        OUTPUT_NAME,
+        options,
+        Box::new(|_cc| Ok(Box::new(P3App::default()))),
+    )
 }
 
 fn main() {
@@ -137,6 +147,6 @@ fn main() {
             zip: cli.is_present("zip"),
         });
     } else {
-        run_gui();
+        run_gui().ok();
     }
 }
